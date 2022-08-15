@@ -34,7 +34,8 @@ class IndexView(TemplateView):
         # buy Bitcoin
         pair = 'XXBTZEUR'
         btc_price = balance['XXBT']['price']
-        amount = 5 / btc_price
+        # 10 euros
+        amount = 10 / btc_price
         print(btc_price, amount)
 
         r = k.add_standard_order(pair=pair, type="buy", ordertype="market", volume=amount, validate=True)
