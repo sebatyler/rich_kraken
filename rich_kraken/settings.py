@@ -133,5 +133,6 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CRONJOBS = [
-    ('15 8 * * *', 'kraken.cron.buy_bitcoin', '>> /tmp/buy_bitcoin.log')
+    ('15 7 * * *', 'kraken.cron.buy_bitcoin', '>> /tmp/buy_bitcoin.log')
 ]
+
