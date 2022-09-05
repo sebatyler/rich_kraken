@@ -1,5 +1,6 @@
 from os import environ
 from kraken.models import Kraken
+from pykrakenapi.pykrakenapi import KrakenAPIError
 import telegram
 
 def buy_bitcoin():
@@ -16,8 +17,18 @@ def buy_bitcoin():
     print(btc_price, amount)
 
     is_test = False
-    r = kraken.api.add_standard_order(pair=pair, type="buy", ordertype="market", volume=amount, validate=is_test)
-    print(r)
+
+    while True:
+      try:
+          r = kraken.api.add_standard_order(pair=pair, type="buy", ordertype="market", volume=amount, validate=is_test)
+          print(r)
+      except KrakenAPIError as e:
+        if 'EService:Busy' in str(e):
+          continue
+        else:
+          raise e
+
+      break
 
     # current balance and value after order
     balance = kraken.get_account_balance()
