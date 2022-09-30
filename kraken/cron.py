@@ -23,7 +23,8 @@ def buy_bitcoin():
           r = kraken.api.add_standard_order(pair=pair, type="buy", ordertype="market", volume=amount, validate=is_test)
           print(r)
       except KrakenAPIError as e:
-        if 'EService:Busy' in str(e):
+        error = str(e)
+        if 'EService:Busy' in error or 'EService:Market in post_only mode' in error:
           continue
         else:
           raise e
