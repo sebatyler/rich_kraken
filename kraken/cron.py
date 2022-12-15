@@ -24,7 +24,8 @@ def buy_bitcoin():
           print(r)
       except KrakenAPIError as e:
         error = str(e)
-        if 'EService:Busy' in error or 'EService:Market in post_only mode' in error:
+        if 'EService:' in error:
+          print(error)
           continue
         else:
           raise e
