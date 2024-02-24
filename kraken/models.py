@@ -1,6 +1,8 @@
 import os
+from datetime import timedelta
 
 import krakenex
+from django.utils import timezone
 from django.utils.functional import cached_property
 from pykrakenapi import KrakenAPI
 
@@ -19,3 +21,6 @@ class Kraken:
 
     def get_ticker(self, pair):
         return self.api.get_ticker_information(pair).to_dict()
+
+    def get_trades(self, start, end=None):
+        return self.api.get_trades_history(start=start, end=end)
