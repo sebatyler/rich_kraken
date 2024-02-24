@@ -1,9 +1,9 @@
-pip-tools==6.8.0
+pip-tools
 
-django==4.1
-django-dotenv==1.4.2
-django-crontab==0.7.1
-jinja2==3.1.2
+django
+django-dotenv
+django-crontab
+jinja2
 
 pykrakenapi==0.3.1
 
