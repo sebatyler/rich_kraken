@@ -44,7 +44,7 @@ pandas==2.0.3
     # via pykrakenapi
 pip-tools==7.4.0
     # via -r requirements.in
-pykrakenapi==0.3.1
+pykrakenapi==0.3.2
     # via -r requirements.in
 pyproject-hooks==1.0.0
     # via

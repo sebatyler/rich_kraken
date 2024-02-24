@@ -5,6 +5,6 @@ django-dotenv
 django-crontab
 jinja2
 
-pykrakenapi==0.3.1
+pykrakenapi
 
 python-telegram-bot==13.13
