@@ -21,6 +21,9 @@
     var euroData = jsonData.map(function (item) {
       return item.euro;
     });
+    var btcPriceData = jsonData.map(function (item) {
+      return item.price;
+    });
     var btcEuroData = jsonData.map(function (item) {
       return item.btc_euro;
     });
@@ -35,25 +38,59 @@
         labels: labels,
         datasets: [
           {
-            label: "Euro",
+            label: "Euro Balance",
             data: euroData,
             borderColor: "blue",
-            borderWidth: 1,
+            pointStyle: false,
+            yAxisID: "y",
           },
           {
             label: "BTC Euro",
             data: btcEuroData,
-            borderColor: "red",
-            borderWidth: 1,
+            borderColor: "orange",
+            pointStyle: false,
+            yAxisID: "y",
           },
           {
             label: "Total Euro",
             data: totalEuroData,
             borderColor: "green",
-            borderWidth: 1,
+            pointStyle: false,
+            yAxisID: "y",
+          },
+          {
+            label: "BTC Price",
+            data: btcPriceData,
+            borderColor: "red",
+            pointStyle: false,
+            yAxisID: "y1",
           },
         ],
       },
+      options: {
+        interaction: {
+          intersect: false,
+          mode: 'index',
+        },
+        scales: {
+          x: {
+            stacked: true
+          },
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
     });
   </script>
 </body>

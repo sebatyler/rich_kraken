@@ -33,7 +33,9 @@ class IndexView(TemplateView):
         # trade history
         end = timezone.now()
         end_ts = end.timestamp()
-        start_ts = (end - timedelta(days=365)).timestamp()
+        days = 365
+        # days = 30
+        start_ts = (end - timedelta(days=days)).timestamp()
 
         all_trades = []
         while True:
@@ -57,21 +59,34 @@ class IndexView(TemplateView):
 
         first_row = df.iloc[0]
         euro_balance = balance["ZEUR"]["amount"] - first_row["spent"]
-        btc_balance = balance["XXBT"]["amount"] - first_row["vol"]
+        btc_balance = balance["XXBT"]["amount"] + first_row["vol"]
 
         df["euro"] = df["spent"].cumsum() + euro_balance
-        df["btc"] = df["vol"].cumsum() + btc_balance
+        df["btc"] = btc_balance - df["vol"].cumsum()
         df["btc_euro"] = df["btc"] * df["price"]
         df["total_euro"] = df["btc_euro"] + df["euro"]
         df["dtime"] = pd.to_datetime(df["time"], unit="s")
         df["date"] = df["dtime"].dt.strftime("%Y-%m-%d")
 
         reversed_df = (
-            df[["date", "euro", "btc_euro", "total_euro"]]
+            df[["date", "euro", "btc", "price", "btc_euro", "total_euro"]]
             .iloc[::-1]
             .reset_index(drop=True)
         )
         json_data = reversed_df.to_json(orient="records")
         data["chart_data"] = json.dumps(json_data)
+
+        recent_row = df.iloc[0]
+        old_row = df.iloc[-1]
+        bought_btc = recent_row["btc"] - old_row["btc"]
+        diff_total_euro = recent_row["total_euro"] - old_row["total_euro"]
+        profit = diff_total_euro / old_row["total_euro"] * 100
+        balance["BTC"] = {
+            "bought amount": bought_btc,
+            "increased BTC in Euro": recent_row["btc_euro"] - old_row["btc_euro"],
+            "spent Euro balance": old_row["euro"] - recent_row["euro"],
+            "Total increased value in Euro": diff_total_euro,
+            "Profit": f"{profit:.2f} %",
+        }
 
         return data
