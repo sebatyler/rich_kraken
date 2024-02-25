@@ -1,0 +1,19 @@
+{
+  "editor.formatOnSave": true,
+  "files.associations": {
+    "*.html": "jinja-html"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.testing.pytestArgs": ["--no-cov", "."],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.languageServer": "Pylance",
+  "python.analysis.diagnosticMode": "workspace",
+  "CodeGPT.apiKey": "OpenAI"
+}
