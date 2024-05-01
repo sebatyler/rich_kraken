@@ -1,5 +1,96 @@
-Balance
+<head>
+  <title>Kraken</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h3>Balance</h3>
 
-{% for key, amount in balance.items() %}
-    <p>{{ key }}: {{ amount }}</p>
-{% endfor %}
+  {% for key, amount in balance.items() %}
+  <p>{{ key }}: {{ amount }}</p>
+  {% endfor %}
+
+  <canvas id="myChart" width="400" height="200"></canvas>
+  <script>
+    // 뷰에서 전달된 JSON 문자열을 JavaScript 객체로 변환
+    var jsonData = JSON.parse({{ chart_data|safe }});
+
+    // dtime, euro, btc_euro, total_euro 데이터 추출
+    var labels = jsonData.map(function (item) {
+      return item.date;
+    });
+    var euroData = jsonData.map(function (item) {
+      return item.euro;
+    });
+    var btcPriceData = jsonData.map(function (item) {
+      return item.price;
+    });
+    var btcEuroData = jsonData.map(function (item) {
+      return item.btc_euro;
+    });
+    var totalEuroData = jsonData.map(function (item) {
+      return item.total_euro;
+    });
+
+    var ctx = document.getElementById("myChart").getContext("2d");
+    var myChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Euro Balance",
+            data: euroData,
+            borderColor: "blue",
+            pointStyle: false,
+            yAxisID: "y",
+          },
+          {
+            label: "BTC Euro",
+            data: btcEuroData,
+            borderColor: "orange",
+            pointStyle: false,
+            yAxisID: "y",
+          },
+          {
+            label: "Total Euro",
+            data: totalEuroData,
+            borderColor: "green",
+            pointStyle: false,
+            yAxisID: "y",
+          },
+          {
+            label: "BTC Price",
+            data: btcPriceData,
+            borderColor: "red",
+            pointStyle: false,
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        interaction: {
+          intersect: false,
+          mode: 'index',
+        },
+        scales: {
+          x: {
+            stacked: true
+          },
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
