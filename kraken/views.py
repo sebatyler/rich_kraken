@@ -47,7 +47,7 @@ class IndexView(TemplateView):
             if trades.shape[0] == 0:
                 break
 
-            end_ts = trades.iloc[-1]["time"] - 1
+            end_ts = trades["time"][-1] - 1
             if end_ts <= start_ts:
                 break
 
