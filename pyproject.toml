@@ -1,0 +1,32 @@
+[tool.black]
+line-length = 120
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | migrations
+    | tmp
+  )/
+  | manage.py
+)
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+force_single_line = true
+skip = ['migrations', 'settings', 'settings.py']
+balanced_wrapping = true
+known_django = 'django'
+sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'DJANGO', 'FIRSTPARTY', 'LOCALFOLDER']
+
+# PyLance bug: https://github.com/microsoft/pylance-release/issues/3366
+[tool.pyright]

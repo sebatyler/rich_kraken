@@ -34,7 +34,7 @@ class IndexView(TemplateView):
         end = timezone.now()
         end_ts = end.timestamp()
         days = 365
-        # days = 30
+        days = 60
         start_ts = (end - timedelta(days=days)).timestamp()
 
         all_trades = []
@@ -68,11 +68,7 @@ class IndexView(TemplateView):
         df["dtime"] = pd.to_datetime(df["time"], unit="s")
         df["date"] = df["dtime"].dt.strftime("%Y-%m-%d")
 
-        reversed_df = (
-            df[["date", "euro", "btc", "price", "btc_euro", "total_euro"]]
-            .iloc[::-1]
-            .reset_index(drop=True)
-        )
+        reversed_df = df[["date", "euro", "btc", "price", "btc_euro", "total_euro"]].iloc[::-1].reset_index(drop=True)
         json_data = reversed_df.to_json(orient="records")
         data["chart_data"] = json.dumps(json_data)
 
