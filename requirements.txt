@@ -6,8 +6,22 @@
 #
 apscheduler==3.6.3
     # via python-telegram-bot
+argcomplete==3.3.0
+    # via zappa
 asgiref==3.7.2
     # via django
+awslambdaric==2.0.11
+    # via -r requirements.in
+bcrypt==4.1.2
+    # via paramiko
+boto3==1.34.97
+    # via
+    #   kappa
+    #   zappa
+botocore==1.34.97
+    # via
+    #   boto3
+    #   s3transfer
 build==1.0.3
     # via pip-tools
 cachetools==4.2.2
@@ -16,42 +30,85 @@ certifi==2024.2.2
     # via
     #   python-telegram-bot
     #   requests
+cffi==1.16.0
+    # via
+    #   cryptography
+    #   pynacl
+cfn-flip==1.3.0
+    # via troposphere
 charset-normalizer==3.3.2
     # via requests
 click==8.1.7
-    # via pip-tools
-django==5.0.2
     # via
-    #   -r requirements.in
-    #   django-crontab
-django-crontab==0.7.1
+    #   cfn-flip
+    #   kappa
+    #   pip-tools
+cryptography==42.0.5
+    # via paramiko
+decorator==5.1.1
+    # via fabric
+deprecated==1.2.14
+    # via fabric
+django==5.0.4
     # via -r requirements.in
 django-dotenv==1.4.2
     # via -r requirements.in
+durationpy==0.6
+    # via zappa
+fabric==3.2.2
+    # via -r requirements.in
+hjson==3.1.0
+    # via zappa
 idna==3.6
     # via requests
+invoke==2.2.0
+    # via fabric
 jinja2==3.1.3
     # via -r requirements.in
+jmespath==1.0.1
+    # via
+    #   boto3
+    #   botocore
+    #   zappa
+kappa==0.6.0
+    # via zappa
 krakenex==2.2.1
     # via pykrakenapi
 markupsafe==2.1.5
-    # via jinja2
+    # via
+    #   jinja2
+    #   werkzeug
 numpy==1.24.4
     # via pandas
 packaging==23.2
     # via build
 pandas==2.0.3
     # via pykrakenapi
+paramiko==3.4.0
+    # via fabric
 pip-tools==7.4.0
     # via -r requirements.in
+placebo==0.9.0
+    # via
+    #   kappa
+    #   zappa
+pycparser==2.22
+    # via cffi
 pykrakenapi==0.3.2
     # via -r requirements.in
+pynacl==1.5.0
+    # via paramiko
 pyproject-hooks==1.0.0
     # via
     #   build
     #   pip-tools
 python-dateutil==2.8.2
-    # via pandas
+    # via
+    #   botocore
+    #   pandas
+    #   zappa
+python-slugify==8.0.4
+    # via zappa
 python-telegram-bot==13.13
     # via -r requirements.in
 pytz==2024.1
@@ -59,24 +116,54 @@ pytz==2024.1
     #   apscheduler
     #   pandas
     #   python-telegram-bot
+pyyaml==6.0.1
+    # via
+    #   cfn-flip
+    #   kappa
+    #   zappa
 requests==2.31.0
-    # via krakenex
+    # via
+    #   krakenex
+    #   zappa
+s3transfer==0.10.1
+    # via boto3
+simplejson==3.18.4
+    # via awslambdaric
 six==1.16.0
     # via
     #   apscheduler
+    #   cfn-flip
     #   python-dateutil
 sqlparse==0.4.4
     # via django
+text-unidecode==1.3
+    # via python-slugify
+toml==0.10.2
+    # via zappa
 tornado==6.4
     # via python-telegram-bot
+tqdm==4.66.4
+    # via zappa
+troposphere==4.8.0
+    # via zappa
 tzdata==2024.1
     # via pandas
 tzlocal==5.2
     # via apscheduler
 urllib3==2.2.1
-    # via requests
+    # via
+    #   botocore
+    #   requests
+werkzeug==3.0.2
+    # via zappa
 wheel==0.42.0
-    # via pip-tools
+    # via
+    #   pip-tools
+    #   zappa
+wrapt==1.16.0
+    # via deprecated
+zappa==0.58.0
+    # via -r requirements.in
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip

@@ -1,8 +1,6 @@
 import os
-from datetime import timedelta
 
 import krakenex
-from django.utils import timezone
 from django.utils.functional import cached_property
 from pykrakenapi import KrakenAPI
 
