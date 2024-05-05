@@ -1,3 +1,4 @@
+import logging
 import os
 from os import environ
 
@@ -25,7 +26,7 @@ def buy_bitcoin():
 
     # buy Bitcoin by 10 euros
     amount = 10 / btc_price
-    print(btc_price, amount)
+    logging.info(f"{btc_price=}, {amount=}")
 
     is_test = False
 
@@ -34,11 +35,11 @@ def buy_bitcoin():
             r = kraken.api.add_standard_order(
                 pair=pair, type="buy", ordertype="market", volume=amount, validate=is_test
             )
-            print(r)
+            logging.info(f"add_standard_order: {r}")
         except KrakenAPIError as e:
             error = str(e)
             if "EService:" in error:
-                print(error)
+                logging.warning(error)
                 continue
             else:
                 raise e
