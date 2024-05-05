@@ -78,6 +78,7 @@ USER_AGENTS = [
 
 # 현재 코인 데이터 스크래핑 함수
 def fetch_current_data():
+    # https://coinmarketcap.com/api/documentation/v1/#operation/getV1CryptocurrencyListingsLatest
     URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
 
     headers = {
