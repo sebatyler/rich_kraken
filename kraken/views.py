@@ -1,7 +1,9 @@
 import json
+import logging
 from datetime import timedelta
 
 import pandas as pd
+
 from django.utils import timezone
 from django.views.generic import TemplateView
 
@@ -41,7 +43,7 @@ class IndexView(TemplateView):
 
             all_trades = []
             while True:
-                print(start_ts, end_ts)
+                logging.info(f"{start_ts=}, {end_ts=}")
                 trades = kraken.get_trades(start=start_ts, end=end_ts)[0]
                 all_trades.append(trades)
 
