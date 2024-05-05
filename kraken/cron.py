@@ -84,7 +84,12 @@ def fetch_current_data():
         "Accepts": "application/json",
         "X-CMC_PRO_API_KEY": os.getenv("COINMARKETCAP_API_KEY"),
     }
-    params = {"start": "1", "limit": "100", "convert": "USD"}
+    params = {
+        "start": "1",
+        "limit": "100",
+        "convert": "USD",
+        "cryptocurrency_type": "coins",
+    }
 
     # API 호출
     response = requests.get(URL, headers=headers, params=params)
@@ -138,7 +143,13 @@ def select_coins_to_buy():
 
     # 7일 변동률이 7% 이상이고 24시간 변동률이 양수인 코인을 선택
     sorted_coins = sorted(
-        filter(lambda x: x["change_7d"] >= 7 and x["change_24h"] > 0, coins),
+        filter(
+            lambda x: x["change_7d"] >= 7
+            and x["change_24h"] > 0
+            and x["market_cap"] > 10_000_000
+            and x["volume_24h"] > 100_000,
+            coins,
+        ),
         key=lambda x: (x["change_7d"], x["change_24h"]),
         reverse=True,
     )
