@@ -21,7 +21,7 @@ ENV PATH ${FUNCTION_DIR}/venv_deploy/bin:$PATH
 
 ARG USE_CACHE=1
 ARG PACKAGE_FILE=requirements.txt
-ARG TARGET=dev
+ARG TARGET=prod
 
 COPY ${PACKAGE_FILE} ./
 
