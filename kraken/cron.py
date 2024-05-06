@@ -1,18 +1,87 @@
+import json
 import logging
 import os
 from os import environ
 
 import requests
 import telegram
+from langchain_core.pydantic_v1 import BaseModel
+from langchain_core.pydantic_v1 import Field
 from pykrakenapi.pykrakenapi import KrakenAPIError
 
+from core.llm import invoke_llm
 from kraken.models import Kraken
 
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
 
 
+class BaseStrippedModel(BaseModel):
+    def __init__(self, *args, **kwargs):
+        kwargs = {k: v.strip() if isinstance(v, str) else v for k, v in kwargs.items()}
+        super().__init__(*args, **kwargs)
+
+
+class InvestRecommendation(BaseStrippedModel):
+    scratchpad: str = Field(..., description="The scratchpad text")
+    reasoning: str = Field(..., description="The reasoning text")
+    amount: int = Field(..., description="The amount in Euro to invest")
+
+
 def send_message(text, **kwargs):
     bot.sendMessage(chat_id=environ["TELEGRAM_BOT_CHANNEL_ID"], text=text, **kwargs)
+
+
+def fetch_coinmarketcap_data(path, params=None):
+    headers = {
+        "Accepts": "application/json",
+        "X-CMC_PRO_API_KEY": os.getenv("COINMARKETCAP_API_KEY"),
+    }
+    url = "https://pro-api.coinmarketcap.com" + path
+
+    response = requests.get(url, headers=headers, params=params)
+    response.raise_for_status()
+
+    return response.json()["data"]
+
+
+def get_recommendation(data) -> InvestRecommendation:
+    json_data = json.dumps(data)
+    prompt = """
+You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and the numerical data is presented in euros. Your task is to analyze the data and recommend a Euro amount to purchase Bitcoin worth between €5 and €30 in multiples of €5 (e.g., €5, €10, €15, ..., €30) at the same time every day. If you don't think it's a good time to purchase any Bitcoin, output 0.
+
+Key explanations:
+
+a = ask array(<price>, <whole lot volume>, <lot volume>)
+b = bid array(<price>, <whole lot volume>, <lot volume>)
+c = last trade closed array(<price>, <lot volume>)
+v = volume array(<today>, <last 24 hours>)
+p = volume weighted average price array(<today>, <last 24 hours>)
+t = number of trades array(<today>, <last 24 hours>)
+l = low array(<today>, <last 24 hours>)
+h = high array(<today>, <last 24 hours>)
+o = today's opening price
+
+Based on the data, what amount of Euros between €5 and €30 (in multiples of €5) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
+
+The output should be in YAML format and keys should be `scratchpad`, `reasoning`, and `amount`.
+
+Output example:
+```yaml
+scratchpad: |
+  [여기에 최근 비트코인 데이터의 분석과 생각 과정을 한국어로 간단히 적으세요. 현재 가격이 개장 가격 및 일일 고점/저점 대비 어떤지, 거래량, 전반적인 추세 등을 고려하세요.]
+
+reasoning: |
+  [분석을 기반으로 권장하는 구매 금액에 대한 주요 이유를 한국어로 간단히 요약하세요. 왜 그 금액을 구매하는 것이 좋다고 생각하는지 또는 왜 구매를 권장하지 않는지 설명하세요.]
+
+amount: |
+  [추천하는 구매 금액을 Integer로 입력하세요. €5에서 €30 사이의 금액이어야 하며, €5의 배수여야 합니다.]
+```""".strip()
+    return invoke_llm(
+        InvestRecommendation,
+        prompt,
+        "Recent Bitcoin trading data in JSON\n{json_data}",
+        json_data=json_data,
+    )
 
 
 def buy_bitcoin():
@@ -20,12 +89,49 @@ def buy_bitcoin():
 
     pair = "XXBTZEUR"
     ticker = kraken.get_ticker(pair)
+    ticker = {k: v[pair] for k, v in ticker.items()}
 
     # average of ask, bid
-    btc_price = (float(ticker["a"][pair][0]) + float(ticker["b"][pair][0])) / 2
+    btc_price = (float(ticker["a"][0]) + float(ticker["b"][0])) / 2
 
-    # buy Bitcoin by 10 euros
-    amount = 10 / btc_price
+    balance = kraken.get_account_balance()
+
+    btc_data = fetch_coinmarketcap_data(
+        "/v2/cryptocurrency/quotes/latest",
+        params={"symbol": "BTC", "convert": "EUR"},
+    )["BTC"][0]
+
+    input = dict(
+        ticker,
+        circulating_supply=btc_data["circulating_supply"],
+        max_supply=btc_data["max_supply"],
+        total_supply=btc_data["total_supply"],
+        **btc_data["quote"]["EUR"],
+    )
+
+    # get recommendation
+    result, exc = [None] * 2
+    for _ in range(3):
+        try:
+            result = get_recommendation(input)
+            break
+        except Exception as e:
+            logging.warning(e)
+            exc = e
+
+    if not result and exc:
+        raise exc
+
+    send_message(
+        f"```\n{result.scratchpad}\n\n{result.reasoning}```",
+        parse_mode=telegram.ParseMode.MARKDOWN_V2,
+    )
+
+    if result.amount == 0:
+        return
+
+    # buy Bitcoin by recommended amount
+    amount = result.amount / btc_price
     logging.info(f"{btc_price=}, {amount=}")
 
     is_test = False
@@ -80,25 +186,14 @@ USER_AGENTS = [
 # 현재 코인 데이터 스크래핑 함수
 def fetch_current_data():
     # https://coinmarketcap.com/api/documentation/v1/#operation/getV1CryptocurrencyListingsLatest
-    URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
-
-    headers = {
-        "Accepts": "application/json",
-        "X-CMC_PRO_API_KEY": os.getenv("COINMARKETCAP_API_KEY"),
-    }
     params = {
-        "start": "1",
-        "limit": "100",
         "convert": "USD",
         "cryptocurrency_type": "coins",
     }
-
-    # API 호출
-    response = requests.get(URL, headers=headers, params=params)
-    data = response.json()
+    data = fetch_coinmarketcap_data("/v1/cryptocurrency/listings/latest", params)
 
     coins = []
-    for coin in data["data"]:
+    for coin in data:
         name = coin["name"]
         symbol = coin["symbol"]
         quote = coin["quote"]["USD"]
