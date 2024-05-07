@@ -161,7 +161,7 @@ def buy_bitcoin():
     send_message(
         "\n".join(
             [
-                f"Buy: {amount:,.8f} BTC",
+                f"Buy: {amount:,.8f} BTC ({result.amount}€)",
                 f"{btc_amount:,.5f}BTC {btc_value:,.2f}€ / {euro_amount:,.2f}€",
                 "BTC price: {:,.2f}€".format(btc_price),
             ]
