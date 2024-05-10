@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+from datetime import datetime
+from datetime import timedelta
 from os import environ
 
 import requests
@@ -9,10 +11,15 @@ from langchain_core.pydantic_v1 import BaseModel
 from langchain_core.pydantic_v1 import Field
 from pykrakenapi.pykrakenapi import KrakenAPIError
 
+from django.utils import timezone
+
 from core.llm import invoke_llm
 from kraken.models import Kraken
 
+from .models import Trade
+
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
+kraken = Kraken()
 
 
 class BaseStrippedModel(BaseModel):
@@ -85,8 +92,6 @@ amount: |
 
 
 def buy_bitcoin():
-    kraken = Kraken()
-
     pair = "XXBTZEUR"
     ticker = kraken.get_ticker(pair)
     ticker = {k: v[pair] for k, v in ticker.items()}
@@ -269,3 +274,50 @@ def select_coins_to_buy():
         f"Selected Coins to Buy:\n```\n{text}```",
         parse_mode=telegram.ParseMode.MARKDOWN_V2,
     )
+
+
+def insert_trade_history():
+    try:
+        trade = Trade.objects.earliest("trade_at")
+        end = trade.trade_at - timedelta(seconds=1)
+    except Trade.DoesNotExist:
+        end = timezone.now()
+
+    days = 365
+    start = end - timedelta(days=days)
+    trades = []
+
+    while True:
+        logging.info(f"{start=}, {end=}")
+        start_ts = start.timestamp()
+        df = kraken.get_trades(start=start_ts, end=end.timestamp())[0]
+
+        # row count
+        if df.shape[0] == 0:
+            break
+
+        end_ts = df["time"][-1] - 1
+        if end_ts <= start_ts:
+            break
+
+        end = datetime.fromtimestamp(end_ts)
+
+        for _, row in df.iterrows():
+            trades.append(
+                Trade(
+                    txid=row["txid"],
+                    pair=row["pair"],
+                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+                    order_type=row["type"],
+                    price=row["price"],
+                    cost=row["cost"],
+                    volume=row["vol"],
+                    fee=row["fee"],
+                    margin=row["margin"],
+                    misc=row["misc"],
+                    raw=row.to_dict(),
+                )
+            )
+
+    trades.sort(key=lambda x: x.trade_at)
+    Trade.objects.bulk_create(trades)

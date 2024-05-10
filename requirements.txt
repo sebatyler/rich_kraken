@@ -82,8 +82,14 @@ distro==1.9.0
 django==5.0.4
     # via
     #   -r requirements.in
+    #   django-extensions
+    #   django-model-utils
     #   django-s3-sqlite
 django-dotenv==1.4.2
+    # via -r requirements.in
+django-extensions==3.2.3
+    # via -r requirements.in
+django-model-utils==4.5.1
     # via -r requirements.in
 django-s3-sqlite==0.0.5
     # via -r requirements.in

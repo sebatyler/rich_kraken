@@ -1,8 +1,11 @@
 import os
 
 import krakenex
-from django.utils.functional import cached_property
+from model_utils.models import TimeStampedModel
 from pykrakenapi import KrakenAPI
+
+from django.db import models
+from django.utils.functional import cached_property
 
 
 class Kraken:
@@ -22,3 +25,21 @@ class Kraken:
 
     def get_trades(self, start, end=None):
         return self.api.get_trades_history(start=start, end=end)
+
+
+class Trade(TimeStampedModel):
+    txid = models.CharField(max_length=50)
+    pair = models.CharField(max_length=20)
+    trade_at = models.DateTimeField()
+    order_type = models.CharField(max_length=20)
+    price = models.FloatField()
+    cost = models.FloatField()
+    volume = models.FloatField()
+    fee = models.FloatField()
+    margin = models.FloatField()
+    misc = models.CharField(max_length=50)
+    raw = models.JSONField(default=dict)
+
+    @property
+    def spent(self):
+        return self.cost + self.fee
