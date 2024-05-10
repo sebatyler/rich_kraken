@@ -16,6 +16,8 @@ anyio==4.3.0
     # via
     #   anthropic
     #   httpx
+appdirs==1.4.4
+    # via yfinance
 apscheduler==3.6.3
     # via python-telegram-bot
 argcomplete==3.3.0
@@ -31,7 +33,9 @@ awslambdaric==2.0.11
 bcrypt==4.1.2
     # via paramiko
 beautifulsoup4==4.12.3
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   yfinance
 boto3==1.34.97
     # via
     #   kappa
@@ -80,8 +84,18 @@ deprecated==1.2.14
 distro==1.9.0
     # via anthropic
 django==5.0.4
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   django-extensions
+    #   django-model-utils
+    #   django-s3-sqlite
 django-dotenv==1.4.2
+    # via -r requirements.in
+django-extensions==3.2.3
+    # via -r requirements.in
+django-model-utils==4.5.1
+    # via -r requirements.in
+django-s3-sqlite==0.0.5
     # via -r requirements.in
 durationpy==0.6
     # via zappa
@@ -91,6 +105,8 @@ fabric==3.2.2
     # via -r requirements.in
 filelock==3.14.0
     # via huggingface-hub
+frozendict==2.4.4
+    # via yfinance
 frozenlist==1.4.1
     # via
     #   aiohttp
@@ -101,6 +117,8 @@ h11==0.14.0
     # via httpcore
 hjson==3.1.0
     # via zappa
+html5lib==1.1
+    # via yfinance
 httpcore==1.0.5
     # via httpx
 httpx==0.27.0
@@ -113,6 +131,8 @@ idna==3.6
     #   httpx
     #   requests
     #   yarl
+inflection==0.5.1
+    # via nasdaq-data-link
 invoke==2.2.0
     # via fabric
 ipython==8.24.0
@@ -155,6 +175,8 @@ langsmith==0.1.54
     #   langchain
     #   langchain-community
     #   langchain-core
+lxml==5.2.1
+    # via yfinance
 markupsafe==2.1.5
     # via
     #   jinja2
@@ -163,17 +185,25 @@ marshmallow==3.21.2
     # via dataclasses-json
 matplotlib-inline==0.1.7
     # via ipython
+more-itertools==10.2.0
+    # via nasdaq-data-link
 multidict==6.0.5
     # via
     #   aiohttp
     #   yarl
+multitasking==0.0.11
+    # via yfinance
 mypy-extensions==1.0.0
     # via typing-inspect
+nasdaq-data-link==1.0.4
+    # via -r requirements.in
 numpy==1.24.4
     # via
     #   langchain
     #   langchain-community
+    #   nasdaq-data-link
     #   pandas
+    #   yfinance
 orjson==3.10.3
     # via langsmith
 packaging==23.2
@@ -183,11 +213,16 @@ packaging==23.2
     #   langchain-core
     #   marshmallow
 pandas==2.0.3
-    # via pykrakenapi
+    # via
+    #   nasdaq-data-link
+    #   pykrakenapi
+    #   yfinance
 paramiko==3.4.0
     # via fabric
 parso==0.8.4
     # via jedi
+peewee==3.17.5
+    # via yfinance
 pexpect==4.9.0
     # via ipython
 pip-tools==7.4.0
@@ -226,6 +261,7 @@ pyproject-hooks==1.0.0
 python-dateutil==2.8.2
     # via
     #   botocore
+    #   nasdaq-data-link
     #   pandas
     #   zappa
 python-slugify==8.0.4
@@ -237,6 +273,7 @@ pytz==2024.1
     #   apscheduler
     #   pandas
     #   python-telegram-bot
+    #   yfinance
 pyyaml==6.0.1
     # via
     #   cfn-flip
@@ -253,6 +290,8 @@ requests==2.31.0
     #   langchain
     #   langchain-community
     #   langsmith
+    #   nasdaq-data-link
+    #   yfinance
     #   zappa
 s3transfer==0.10.1
     # via boto3
@@ -263,6 +302,8 @@ six==1.16.0
     #   apscheduler
     #   asttokens
     #   cfn-flip
+    #   html5lib
+    #   nasdaq-data-link
     #   python-dateutil
 sniffio==1.3.1
     # via
@@ -324,6 +365,8 @@ wcwidth==0.2.13
     # via
     #   prettytable
     #   prompt-toolkit
+webencodings==0.5.1
+    # via html5lib
 werkzeug==3.0.2
     # via zappa
 wheel==0.42.0
@@ -334,6 +377,8 @@ wrapt==1.16.0
     # via deprecated
 yarl==1.9.4
     # via aiohttp
+yfinance==0.2.38
+    # via -r requirements.in
 zappa==0.58.0
     # via -r requirements.in
 

@@ -1,18 +1,27 @@
 import json
 import logging
 import os
+from datetime import datetime
+from datetime import timedelta
 from os import environ
 
+import pandas as pd
 import requests
 import telegram
+import yfinance as yf
 from langchain_core.pydantic_v1 import BaseModel
 from langchain_core.pydantic_v1 import Field
 from pykrakenapi.pykrakenapi import KrakenAPIError
 
+from django.utils import timezone
+
 from core.llm import invoke_llm
 from kraken.models import Kraken
 
+from .models import Trade
+
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
+kraken = Kraken()
 
 
 class BaseStrippedModel(BaseModel):
@@ -44,10 +53,12 @@ def fetch_coinmarketcap_data(path, params=None):
     return response.json()["data"]
 
 
-def get_recommendation(data) -> InvestRecommendation:
+def get_recommendation(
+    data, bitcoin_data_csv, network_stats_csv, indices_csv, bitcoin_news_csv
+) -> InvestRecommendation:
     json_data = json.dumps(data)
     prompt = """
-You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and the numerical data is presented in euros. Your task is to analyze the data and recommend a Euro amount to purchase Bitcoin worth between €5 and €30 in multiples of €5 (e.g., €5, €10, €15, ..., €30) at the same time every day. If you don't think it's a good time to purchase any Bitcoin, output 0.
+You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and other data in CSV format. Your task is to analyze the data and recommend a Euro amount to purchase Bitcoin worth between €5 and €30 in multiples of €5 (e.g., €5, €10, €15, ..., €30) at the same time every day. If you don't think it's a good time to purchase any Bitcoin, output 0.
 
 Key explanations:
 
@@ -79,14 +90,43 @@ amount: |
     return invoke_llm(
         InvestRecommendation,
         prompt,
-        "Recent Bitcoin trading data in JSON\n{json_data}",
+        "Recent Bitcoin trading data in EUR in JSON\n```json\n{json_data}```\nBitcoin data in USD in CSV\n```csv\n{bitcoin_data_csv}```\nNetwork stats in CSV\n```csv\n{network_stats_csv}```\nIndices data in USD in CSV\n```csv\n{indices_csv}```Bitcoin news in CSV\n```csv\n{bitcoin_news_csv}```",
         json_data=json_data,
+        bitcoin_data_csv=bitcoin_data_csv,
+        network_stats_csv=network_stats_csv,
+        indices_csv=indices_csv,
+        bitcoin_news_csv=bitcoin_news_csv,
     )
 
 
-def buy_bitcoin():
-    kraken = Kraken()
+def fetch_crypto_data(fsym, tsym, limit):
+    url = f"https://min-api.cryptocompare.com/data/histoday"
+    parameters = {"fsym": fsym, "tsym": tsym, "limit": limit}
+    response = requests.get(url, params=parameters)
+    data = response.json()
+    return data["Data"]
 
+
+def fetch_bitcoin_news(from_date):
+    url = "https://newsapi.org/v2/everything"
+    parameters = {"q": "bitcoin", "from": from_date, "pageSize": 20}
+    response = requests.get(
+        url,
+        params=parameters,
+        headers={"X-Api-Key": os.getenv("NEWS_API_KEY")},
+    )
+    data = response.json()
+    return data["articles"]
+
+
+def fetch_network_stats():
+    url = "https://api.blockchain.info/stats"
+    response = requests.get(url)
+    data = response.json()
+    return data
+
+
+def buy_bitcoin():
     pair = "XXBTZEUR"
     ticker = kraken.get_ticker(pair)
     ticker = {k: v[pair] for k, v in ticker.items()}
@@ -109,11 +149,40 @@ def buy_bitcoin():
         **btc_data["quote"]["EUR"],
     )
 
+    # 오늘 날짜와 한 달 전 날짜 설정
+    end_date = timezone.localdate()
+    start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # bitcoin data in Euro
+    bitcoin_data = fetch_crypto_data("BTC", "EUR", 30)
+    df = pd.DataFrame(bitcoin_data)
+    df = df.drop(columns=["conversionType", "conversionSymbol"])
+    bitcoin_data = df.to_csv(index=False)
+
+    # fundamental data
+    network_stats = fetch_network_stats()
+    df = pd.DataFrame(network_stats, index=[0])
+    network_stats = df.to_csv(index=False)
+
+    # bitcoin news
+    bitcoin_news = fetch_bitcoin_news(from_date=start_date)
+    df = pd.DataFrame(bitcoin_news)
+    df = df[["source", "title", "description", "publishedAt", "content"]]
+    df["source"] = df["source"].apply(lambda x: x["name"])
+    bitcoin_news = df.to_csv(index=False)
+
+    # 유가, 다우존스, S&P 500, 나스닥
+    indices = ["CL=F", "^DJI", "^GSPC", "^IXIC"]
+    indices_data = yf.download(indices, start=start_date)
+    indices_data = indices_data["Close"].to_csv()
+
+    # TODO: 유가(WTI), 미국 실업률, 미국 기준금리, 소비자 물가 지수(CPI)
+
     # get recommendation
     result, exc = [None] * 2
     for _ in range(3):
         try:
-            result = get_recommendation(input)
+            result = get_recommendation(input, bitcoin_data, network_stats, indices_data, bitcoin_news)
             break
         except Exception as e:
             logging.warning(e)
@@ -135,6 +204,7 @@ def buy_bitcoin():
     logging.info(f"{btc_price=}, {amount=}")
 
     is_test = False
+    start = timezone.now()
 
     while True:
         try:
@@ -167,6 +237,32 @@ def buy_bitcoin():
             ]
         )
     )
+
+    try:
+        # save trade history
+        df = kraken.get_trades(start=start.timestamp(), end=timezone.now().timestamp())[0]
+        if df.shape[0] > 0:
+            trades = [
+                Trade(
+                    txid=row["txid"],
+                    pair=row["pair"],
+                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+                    order_type=row["type"],
+                    price=row["price"],
+                    cost=row["cost"],
+                    volume=row["vol"],
+                    fee=row["fee"],
+                    margin=row["margin"],
+                    misc=row["misc"],
+                    raw=row.to_dict(),
+                )
+                for _, row in df.iterrows()
+            ]
+            trades.sort(key=lambda x: x.trade_at)
+            ret = Trade.objects.bulk_create(trades)
+            logging.info(f"Trade created: {len(ret)}")
+    except Exception as e:
+        logging.warning(e)
 
 
 # CoinMarketCap 메인 페이지 URL
@@ -269,3 +365,50 @@ def select_coins_to_buy():
         f"Selected Coins to Buy:\n```\n{text}```",
         parse_mode=telegram.ParseMode.MARKDOWN_V2,
     )
+
+
+def insert_trade_history():
+    try:
+        trade = Trade.objects.earliest("trade_at")
+        end = trade.trade_at - timedelta(seconds=1)
+    except Trade.DoesNotExist:
+        end = timezone.now()
+
+    days = 365
+    start = end - timedelta(days=days)
+    trades = []
+
+    while True:
+        logging.info(f"{start=}, {end=}")
+        start_ts = start.timestamp()
+        df = kraken.get_trades(start=start_ts, end=end.timestamp())[0]
+
+        # row count
+        if df.shape[0] == 0:
+            break
+
+        end_ts = df["time"][-1] - 1
+        if end_ts <= start_ts:
+            break
+
+        end = datetime.fromtimestamp(end_ts)
+
+        for _, row in df.iterrows():
+            trades.append(
+                Trade(
+                    txid=row["txid"],
+                    pair=row["pair"],
+                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+                    order_type=row["type"],
+                    price=row["price"],
+                    cost=row["cost"],
+                    volume=row["vol"],
+                    fee=row["fee"],
+                    margin=row["margin"],
+                    misc=row["misc"],
+                    raw=row.to_dict(),
+                )
+            )
+
+    trades.sort(key=lambda x: x.trade_at)
+    Trade.objects.bulk_create(trades)
