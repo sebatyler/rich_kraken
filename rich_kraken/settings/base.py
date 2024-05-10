@@ -39,6 +39,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "django_s3_sqlite",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -89,14 +90,24 @@ WSGI_APPLICATION = "rich_kraken.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-tmp_dir = Path("/tmp") if ENV == "prod" else BASE_DIR / "tmp"
-os.makedirs(tmp_dir, exist_ok=True)
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": tmp_dir / "db.sqlite3",
+if os.getenv("USE_S3_SQLITE", "0") == "1":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django_s3_sqlite",
+            "NAME": "rich_kraken.db",
+            "BUCKET": "sebatyler-dev",
+        },
     }
-}
+else:
+    tmp_dir = BASE_DIR / "tmp"
+    os.makedirs(tmp_dir, exist_ok=True)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": tmp_dir / "db.sqlite3",
+        }
+    }
+print({k: v for k, v in DATABASES["default"].items() if k != "PASSWORD"})
 
 
 # Password validation
