@@ -140,6 +140,7 @@ def buy_bitcoin():
     logging.info(f"{btc_price=}, {amount=}")
 
     is_test = False
+    start = timezone.now()
 
     while True:
         try:
@@ -172,6 +173,32 @@ def buy_bitcoin():
             ]
         )
     )
+
+    try:
+        # save trade history
+        df = kraken.get_trades(start=start.timestamp(), end=timezone.now().timestamp())[0]
+        if df.shape[0] > 0:
+            trades = [
+                Trade(
+                    txid=row["txid"],
+                    pair=row["pair"],
+                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+                    order_type=row["type"],
+                    price=row["price"],
+                    cost=row["cost"],
+                    volume=row["vol"],
+                    fee=row["fee"],
+                    margin=row["margin"],
+                    misc=row["misc"],
+                    raw=row.to_dict(),
+                )
+                for _, row in df.iterrows()
+            ]
+            trades.sort(key=lambda x: x.trade_at)
+            ret = Trade.objects.bulk_create(trades)
+            logging.info(f"Trade created: {len(ret)}")
+    except Exception as e:
+        logging.warning(e)
 
 
 # CoinMarketCap 메인 페이지 URL
