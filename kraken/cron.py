@@ -417,3 +417,29 @@ def insert_trade_history():
 
     trades.sort(key=lambda x: x.trade_at)
     Trade.objects.bulk_create(trades)
+
+
+def update_trade_history():
+    trade = Trade.objects.latest("trade_at")
+    start = trade.trade_at + timedelta(seconds=1)
+
+    df = kraken.get_trades(start=start.timestamp())[0]
+    trades = [
+        Trade(
+            txid=row["txid"],
+            pair=row["pair"],
+            trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+            order_type=row["type"],
+            price=row["price"],
+            cost=row["cost"],
+            volume=row["vol"],
+            fee=row["fee"],
+            margin=row["margin"],
+            misc=row["misc"],
+            raw=row.to_dict(),
+        )
+        for _, row in df.iterrows()
+    ]
+
+    trades.sort(key=lambda x: x.trade_at)
+    logging.info(Trade.objects.bulk_create(trades))
