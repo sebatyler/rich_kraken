@@ -43,6 +43,9 @@ COPY ./ ./
 # load secrets and save to .env
 RUN aws s3 cp s3://sebatyler-dev/rich_kraken/.env.${TARGET} .env
 
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
 # Grab the zappa handler.py and put it in the working directory
 RUN ZAPPA_HANDLER_PATH=$(python -c "from zappa import handler; print (handler.__file__)") \
     && echo $ZAPPA_HANDLER_PATH \
