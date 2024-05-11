@@ -40,6 +40,9 @@ class Trade(TimeStampedModel):
     misc = models.CharField(max_length=50)
     raw = models.JSONField(default=dict)
 
+    def __str__(self):
+        return f"Trade({self.id}): {self.pair}/{self.order_type}/{self.volume} @ {self.price}"
+
     @property
     def spent(self):
         return self.cost + self.fee

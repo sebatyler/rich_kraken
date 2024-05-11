@@ -13,6 +13,7 @@ from langchain_core.pydantic_v1 import BaseModel
 from langchain_core.pydantic_v1 import Field
 from pykrakenapi.pykrakenapi import KrakenAPIError
 
+from django.conf import settings
 from django.utils import timezone
 
 from core.llm import invoke_llm
@@ -22,6 +23,10 @@ from .models import Trade
 
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
 kraken = Kraken()
+
+# Set timezone cache location to /tmp if AWS lambda environment
+if not settings.DEBUG:
+    yf.set_tz_cache_location("/tmp/yf")
 
 
 class BaseStrippedModel(BaseModel):
@@ -260,7 +265,7 @@ def buy_bitcoin():
             ]
             trades.sort(key=lambda x: x.trade_at)
             ret = Trade.objects.bulk_create(trades)
-            logging.info(f"Trade created: {len(ret)}")
+            logging.info(f"Trade created: {len(ret)} - {trades}")
     except Exception as e:
         logging.warning(e)
 
