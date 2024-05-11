@@ -18,7 +18,7 @@ class Kraken:
 
     def get_account_balance(self):
         balance = self.api.get_account_balance()
-        return {k: dict(amount=v) for k, v in sorted(balance.to_dict()["vol"].items())}
+        return {k: dict(amount=v) for k, v in sorted(balance.to_dict()["vol"].items()) if v > 0}
 
     def get_ticker(self, pair):
         return self.api.get_ticker_information(pair).to_dict()

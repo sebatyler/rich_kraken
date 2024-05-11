@@ -31,7 +31,6 @@ class IndexView(TemplateView):
             if "price" in v:
                 v["my_price"] = f"{v['price'] * v['amount']:,.2f} Euros"
 
-        data["balance"] = balance
         data["chart_data"] = []
 
         # trade history
@@ -50,7 +49,7 @@ class IndexView(TemplateView):
         df["btc"] = btc_balance - df["volume"].cumsum()
         df["btc_euro"] = df["btc"] * df["price"]
         df["total_euro"] = df["btc_euro"] + df["euro"]
-        df["date"] = df["trade_at"].dt.tz_convert(settings.TIME_ZONE).dt.strftime("%Y-%m-%d")
+        df["date"] = df["trade_at"].dt.tz_convert(settings.TIME_ZONE).dt.strftime("%m-%d")
 
         reversed_df = (
             df[["date", "volume", "spent", "euro", "btc", "price", "btc_euro", "total_euro"]]
@@ -72,5 +71,7 @@ class IndexView(TemplateView):
             "Total increased value in Euro": diff_total_euro,
             "Profit": f"{profit:.2f} %",
         }
+        balance = {k: v for k, v in sorted(balance.items(), key=lambda item: item[0])}
+        data["balance"] = balance
 
         return data
