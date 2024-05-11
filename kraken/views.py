@@ -1,9 +1,9 @@
 import json
-import logging
 from datetime import timedelta
 
 import pandas as pd
 
+from django.conf import settings
 from django.utils import timezone
 from django.views.generic import TemplateView
 
@@ -50,9 +50,13 @@ class IndexView(TemplateView):
         df["btc"] = btc_balance - df["volume"].cumsum()
         df["btc_euro"] = df["btc"] * df["price"]
         df["total_euro"] = df["btc_euro"] + df["euro"]
-        df["date"] = df["trade_at"].dt.strftime("%Y-%m-%d")
+        df["date"] = df["trade_at"].dt.tz_convert(settings.TIME_ZONE).dt.strftime("%Y-%m-%d")
 
-        reversed_df = df[["date", "euro", "btc", "price", "btc_euro", "total_euro"]].iloc[::-1].reset_index(drop=True)
+        reversed_df = (
+            df[["date", "volume", "spent", "euro", "btc", "price", "btc_euro", "total_euro"]]
+            .iloc[::-1]
+            .reset_index(drop=True)
+        )
         json_data = reversed_df.to_json(orient="records")
         data["chart_data"] = json.dumps(json_data)
 
