@@ -19,6 +19,7 @@ from django.utils import timezone
 from core.llm import invoke_llm
 from kraken.models import Kraken
 
+from .models import CryptoListing
 from .models import Trade
 
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
@@ -284,41 +285,45 @@ USER_AGENTS = [
 ]
 
 
-# 현재 코인 데이터 스크래핑 함수
-def fetch_current_data():
+def fetch_crypto_listings():
     # https://coinmarketcap.com/api/documentation/v1/#operation/getV1CryptocurrencyListingsLatest
+    min_market_cap = 1_000
     params = {
         "convert": "USD",
         "cryptocurrency_type": "coins",
+        "market_cap_min": min_market_cap,  # "Minimum market capitalization in USD"
+        "limit": 1000,
     }
     data = fetch_coinmarketcap_data("/v1/cryptocurrency/listings/latest", params)
 
-    coins = []
+    listing = []
     for coin in data:
-        name = coin["name"]
-        symbol = coin["symbol"]
         quote = coin["quote"]["USD"]
-        price = quote["price"]
-        change_1h = quote["percent_change_1h"]
-        change_24h = quote["percent_change_24h"]
-        change_7d = quote["percent_change_7d"]
         market_cap = quote["market_cap"]
-        volumne_24h = quote["volume_24h"]
 
-        coins.append(
-            {
-                "name": name,
-                "symbol": symbol,
-                "price": price,
-                "change_7d": change_7d,
-                "change_24h": change_24h,
-                "change_1h": change_1h,
-                "market_cap": market_cap,
-                "volume_24h": volumne_24h,
-            }
+        if market_cap < min_market_cap:
+            continue
+
+        listing.append(
+            CryptoListing(
+                name=coin["name"],
+                symbol=coin["symbol"],
+                data_at=coin["last_updated"],
+                rank=coin["cmc_rank"],
+                circulating_supply=coin["circulating_supply"],
+                total_supply=coin["total_supply"],
+                max_supply=coin["max_supply"],
+                price=quote["price"],
+                market_cap=market_cap,
+                change_1h=quote["percent_change_1h"],
+                change_24h=quote["percent_change_24h"],
+                change_7d=quote["percent_change_7d"],
+                volume_24h=quote["volume_24h"],
+                raw=coin,
+            )
         )
 
-    return coins
+    return len(CryptoListing.objects.bulk_create(listing))
 
 
 def pretty_currency(value):
@@ -334,35 +339,28 @@ def pretty_currency(value):
     return value
 
 
-# 코인 선택 로직 구현
+# TODO: 데이터 7일 이상 쌓이면 7일 연속 상승한 코인 선택
 def select_coins_to_buy():
-    # 코인 데이터 스크래핑
-    coins = fetch_current_data()
-
     # 7일 변동률이 7% 이상이고 24시간 변동률이 양수인 코인을 선택
-    sorted_coins = sorted(
-        filter(
-            lambda x: x["change_7d"] >= 7
-            and x["change_24h"] > 0
-            and x["market_cap"] > 10_000_000
-            and x["volume_24h"] > 100_000,
-            coins,
-        ),
-        key=lambda x: (x["change_7d"], x["change_24h"]),
-        reverse=True,
-    )
-    selected_coins = sorted_coins[:10]  # 상위 코인 선택
+    selected_listings = CryptoListing.objects.filter(
+        data_at__date=timezone.now().date(),
+        change_7d__gte=7,
+        change_24h__gt=0,
+        market_cap__gt=10_000_000,
+        volume_24h__gt=100_000,
+        rank__lt=300,
+    ).order_by("-change_7d", "-change_24h")[:10]
 
     text_list = []
 
     # 선택된 코인 정보 출력
-    for i, coin in enumerate(selected_coins, 1):
-        text_list.extend([f"{i}. {coin['name']} ({coin['symbol']})", f"Price: ${coin['price']:.4f}"])
+    for i, listing in enumerate(selected_listings, 1):
+        text_list.extend([f"{i}. {listing.name} ({listing.symbol})", f"Price: ${listing.price:.4f}"])
 
-        values = "/".join(f"{val:.1f}%" for val in (coin["change_7d"], coin["change_24h"], coin["change_1h"]))
+        values = "/".join(f"{val:.1f}%" for val in (listing.change_7d, listing.change_24h, listing.change_1h))
         text_list.append(f"Change(7d/24/1h): {values}")
 
-        market_cap, volume = [pretty_currency(val) for val in (coin["market_cap"], coin["volume_24h"])]
+        market_cap, volume = [pretty_currency(val) for val in (listing.market_cap, listing.volume_24h)]
         text_list.extend([f"Market Cap: {market_cap}", f"Volume(24h): {volume}", ""])
 
     text = "\n".join(text_list)
