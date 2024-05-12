@@ -1,32 +1,53 @@
 <head>
   <title>Kraken</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .chart-container {
+      @apply w-full max-w-1024px mx-auto;
+    }
+  </style>
+
 </head>
+
 <body>
-  <h3>Balance</h3>
-
-  {% for key, amount in balance.items() %}
-  <p>{{ key }}: {{ amount }}</p>
-  {% endfor %}
-
-  <canvas id="myChart" width="400" height="200"></canvas>
-  <script>
-    // 뷰에서 전달된 JSON 문자열을 JavaScript 객체로 변환
-    var jsonData = JSON.parse({{ chart_data|safe }});
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+  <div class="container m-auto">
+    {% for key, value in balance.items() %}
+    <div class="mb-4 ml-4">
+      <h2 class="text-l font-bold">{{key}}
+      </h2>
+      <ul class="text-sm list-disc ml-8">
+        {% for k, v in value.items() %}
+        <li><strong>{{k}}:</strong>{{v}}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  <script> // 뷰에서 전달된 JSON 문자열을 JavaScript 객체로 변환
+    var jsonData = JSON.parse({{ chart_data| safe}});
 
     // dtime, euro, btc_euro, total_euro 데이터 추출
     var labels = jsonData.map(function (item) {
       return item.date;
     });
+
     var euroData = jsonData.map(function (item) {
       return item.euro;
     });
+
     var btcPriceData = jsonData.map(function (item) {
       return item.price;
     });
+
     var btcEuroData = jsonData.map(function (item) {
       return item.btc_euro;
     });
+
     var totalEuroData = jsonData.map(function (item) {
       return item.total_euro;
     });

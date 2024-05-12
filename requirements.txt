@@ -54,6 +54,7 @@ certifi==2024.2.2
     #   httpx
     #   python-telegram-bot
     #   requests
+    #   sentry-sdk
 cffi==1.16.0
     # via
     #   cryptography
@@ -89,6 +90,7 @@ django==5.0.4
     #   django-extensions
     #   django-model-utils
     #   django-s3-sqlite
+    #   sentry-sdk
 django-dotenv==1.4.2
     # via -r requirements.in
 django-extensions==3.2.3
@@ -295,6 +297,8 @@ requests==2.31.0
     #   zappa
 s3transfer==0.10.1
     # via boto3
+sentry-sdk[django]==2.1.1
+    # via -r requirements.in
 simplejson==3.18.4
     # via awslambdaric
 six==1.16.0
@@ -361,6 +365,7 @@ urllib3==2.2.1
     # via
     #   botocore
     #   requests
+    #   sentry-sdk
 wcwidth==0.2.13
     # via
     #   prettytable

@@ -28,3 +28,5 @@ pydantic==1.10.12
 
 nasdaq-data-link==1.0.4
 yfinance==0.2.38
+
+sentry-sdk[django]==2.1.1
