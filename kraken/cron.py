@@ -301,27 +301,25 @@ def fetch_crypto_listings():
         quote = coin["quote"]["USD"]
         market_cap = quote["market_cap"]
 
-        if market_cap < min_market_cap:
-            continue
-
-        listing.append(
-            CryptoListing(
-                name=coin["name"],
-                symbol=coin["symbol"],
-                data_at=coin["last_updated"],
-                rank=coin["cmc_rank"],
-                circulating_supply=coin["circulating_supply"],
-                total_supply=coin["total_supply"],
-                max_supply=coin["max_supply"],
-                price=quote["price"],
-                market_cap=market_cap,
-                change_1h=quote["percent_change_1h"],
-                change_24h=quote["percent_change_24h"],
-                change_7d=quote["percent_change_7d"],
-                volume_24h=quote["volume_24h"],
-                raw=coin,
+        if market_cap >= min_market_cap:
+            listing.append(
+                CryptoListing(
+                    name=coin["name"],
+                    symbol=coin["symbol"],
+                    data_at=coin["last_updated"],
+                    rank=coin["cmc_rank"],
+                    circulating_supply=coin["circulating_supply"],
+                    total_supply=coin["total_supply"],
+                    max_supply=coin["max_supply"],
+                    price=quote["price"],
+                    market_cap=market_cap,
+                    change_1h=quote["percent_change_1h"],
+                    change_24h=quote["percent_change_24h"],
+                    change_7d=quote["percent_change_7d"],
+                    volume_24h=quote["volume_24h"],
+                    raw=coin,
+                )
             )
-        )
 
     return len(CryptoListing.objects.bulk_create(listing))
 
