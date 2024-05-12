@@ -266,7 +266,7 @@ def buy_bitcoin():
             ]
             trades.sort(key=lambda x: x.trade_at)
             ret = Trade.objects.bulk_create(trades)
-            logging.info(f"Trade created: {len(ret)} - {trades}")
+            logging.info(f"Trade created: {len(ret)} - {ret}")
     except Exception as e:
         logging.warning(e)
 
