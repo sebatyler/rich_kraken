@@ -38,6 +38,7 @@ beautifulsoup4==4.12.3
     #   yfinance
 boto3==1.34.97
     # via
+    #   django-storages
     #   kappa
     #   zappa
 botocore==1.34.97
@@ -90,6 +91,7 @@ django==5.0.4
     #   django-extensions
     #   django-model-utils
     #   django-s3-sqlite
+    #   django-storages
     #   sentry-sdk
 django-dotenv==1.4.2
     # via -r requirements.in
@@ -98,6 +100,8 @@ django-extensions==3.2.3
 django-model-utils==4.5.1
     # via -r requirements.in
 django-s3-sqlite==0.0.5
+    # via -r requirements.in
+django-storages[s3]==1.14.3
     # via -r requirements.in
 durationpy==0.6
     # via zappa
