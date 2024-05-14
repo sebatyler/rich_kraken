@@ -20,6 +20,14 @@ class IndexView(TemplateView):
         kraken = Kraken()
         balance = kraken.get_account_balance()
 
+        # XBT.M is the same as XXBT
+        if btc_allocated := balance.get("XBT.M"):
+            xxbt = balance.get("XXBT")
+            if xxbt:
+                xxbt["amount"] += btc_allocated["amount"]
+            else:
+                balance["XXBT"] = btc_allocated
+
         pair = "XXBTZEUR"
         ticker = kraken.get_ticker(pair)
 
