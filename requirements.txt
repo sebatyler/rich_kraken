@@ -99,7 +99,7 @@ django-extensions==3.2.3
     # via -r requirements.in
 django-model-utils==4.5.1
     # via -r requirements.in
-django-s3-sqlite==0.0.5
+django-s3-sqlite @ git+https://github.com/sebatyler/django-s3-sqlite.git@main
     # via -r requirements.in
 django-storages[s3]==1.14.3
     # via -r requirements.in

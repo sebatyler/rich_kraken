@@ -16,6 +16,7 @@ from pykrakenapi.pykrakenapi import KrakenAPIError
 from django.conf import settings
 from django.utils import timezone
 
+from core.db import ConnectionContextManager
 from core.llm import invoke_llm
 from kraken.models import Kraken
 
@@ -265,7 +266,10 @@ def buy_bitcoin():
                 for _, row in df.iterrows()
             ]
             trades.sort(key=lambda x: x.trade_at)
-            ret = Trade.objects.bulk_create(trades)
+
+            with ConnectionContextManager():
+                ret = Trade.objects.bulk_create(trades)
+
             logging.info(f"Trade created: {len(ret)} - {ret}")
     except Exception as e:
         logging.warning(e)
@@ -321,7 +325,11 @@ def fetch_crypto_listings():
                 )
             )
 
-    return len(CryptoListing.objects.bulk_create(listing))
+    with ConnectionContextManager():
+        result = CryptoListing.objects.bulk_create(listing)
+        logging.info(f"fetch_crypto_listings: {len(result)}")
+
+    return result
 
 
 def pretty_currency(value):
@@ -416,26 +424,27 @@ def insert_trade_history():
 
 
 def update_trade_history():
-    trade = Trade.objects.latest("trade_at")
-    start = trade.trade_at + timedelta(seconds=1)
+    with ConnectionContextManager():
+        trade = Trade.objects.latest("trade_at")
+        start = trade.trade_at + timedelta(seconds=1)
 
-    df = kraken.get_trades(start=start.timestamp())[0]
-    trades = [
-        Trade(
-            txid=row["txid"],
-            pair=row["pair"],
-            trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-            order_type=row["type"],
-            price=row["price"],
-            cost=row["cost"],
-            volume=row["vol"],
-            fee=row["fee"],
-            margin=row["margin"],
-            misc=row["misc"],
-            raw=row.to_dict(),
-        )
-        for _, row in df.iterrows()
-    ]
+        df = kraken.get_trades(start=start.timestamp())[0]
+        trades = [
+            Trade(
+                txid=row["txid"],
+                pair=row["pair"],
+                trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
+                order_type=row["type"],
+                price=row["price"],
+                cost=row["cost"],
+                volume=row["vol"],
+                fee=row["fee"],
+                margin=row["margin"],
+                misc=row["misc"],
+                raw=row.to_dict(),
+            )
+            for _, row in df.iterrows()
+        ]
 
-    trades.sort(key=lambda x: x.trade_at)
-    logging.info(Trade.objects.bulk_create(trades))
+        trades.sort(key=lambda x: x.trade_at)
+        logging.info(f"update_trade_history: {Trade.objects.bulk_create(trades)}")
