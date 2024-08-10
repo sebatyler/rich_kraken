@@ -370,6 +370,7 @@ def select_coins_to_buy():
             first_price=Min("price"),
             last_price=Max("price"),
             avg_market_cap=Avg("market_cap"),
+            name=F("name"),
         )
         .filter(count_positive=5)
         .annotate(
@@ -385,7 +386,7 @@ def select_coins_to_buy():
 
     # 선택된 코인 정보 출력
     for i, coin in enumerate(coins, 1):
-        text_list.extend([f"{i}. {coin['symbol']} (${coin['last_price']:.4f})"])
+        text_list.extend([f"{i}. {coin['name']} ({coin['symbol']}) ${coin['last_price']:.4f}"])
         text_list.append(f"Price 5 days ago: ${coin['first_price']:.4f}")
         text_list.append(f"Change over 5 days: {coin['change_5d']:.2f}%")
 
