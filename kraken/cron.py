@@ -25,6 +25,9 @@ from django.db.models import Min
 from django.db.models import When
 from django.utils import timezone
 
+from core.coinone import buy_ticker
+from core.coinone import get_balances
+from core.coinone import get_ticker
 from core.db import ConnectionContextManager
 from core.llm import invoke_llm
 from kraken.models import Kraken
@@ -49,7 +52,7 @@ class BaseStrippedModel(BaseModel):
 class InvestRecommendation(BaseStrippedModel):
     scratchpad: str = Field(..., description="The scratchpad text")
     reasoning: str = Field(..., description="The reasoning text")
-    amount: int = Field(..., description="The amount in Euro to invest")
+    amount: int = Field(..., description="The amount in KRW to invest")
 
 
 def send_message(text, **kwargs):
@@ -74,21 +77,11 @@ def get_recommendation(
 ) -> InvestRecommendation:
     json_data = json.dumps(data)
     prompt = """
-You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and other data in CSV format. Your task is to analyze the data and recommend a Euro amount to purchase Bitcoin worth between €10 and €30 in multiples of €10 (e.g., €10, €15, ..., €30) at the same time every day. If you don't think it's a good time to purchase any Bitcoin, output 0.
+You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and other data in CSV format.
+Your task is to analyze the data and recommend a KRW amount to purchase Bitcoin worth between 10,000 and 30,000 in multiples of 5,000 (e.g., 10,000, 15,000, ..., 30,000) at the same time every day.
+If you don't think it's a good time to purchase any Bitcoin, output 0.
 
-Key explanations:
-
-a = ask array(<price>, <whole lot volume>, <lot volume>)
-b = bid array(<price>, <whole lot volume>, <lot volume>)
-c = last trade closed array(<price>, <lot volume>)
-v = volume array(<today>, <last 24 hours>)
-p = volume weighted average price array(<today>, <last 24 hours>)
-t = number of trades array(<today>, <last 24 hours>)
-l = low array(<today>, <last 24 hours>)
-h = high array(<today>, <last 24 hours>)
-o = today's opening price
-
-Based on the data, what amount of Euros between €10 and €30 (in multiples of €5) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
+Based on the data, what amount of KRW between 10,000 and 30,000 (in multiples of 5,000) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
 
 The output should be in YAML format and keys should be `scratchpad`, `reasoning`, and `amount`.
 
@@ -101,12 +94,12 @@ reasoning: |
   [분석을 기반으로 권장하는 구매 금액에 대한 주요 이유를 한국어로 간단히 요약하세요. 왜 그 금액을 구매하는 것이 좋다고 생각하는지 또는 왜 구매를 권장하지 않는지 설명하세요.]
 
 amount: |
-  [추천하는 구매 금액을 Integer로 입력하세요. €10에서 €30 사이의 금액이어야 하며, €5의 배수여야 합니다.]
+  [추천하는 구매 금액을 Integer로 입력하세요. 10,000 KRW에서 30,000 KRW 사이의 금액이어야 하며, 5,000 KRW의 배수여야 합니다.]
 ```""".strip()
     return invoke_llm(
         InvestRecommendation,
         prompt,
-        "Recent Bitcoin trading data in EUR in JSON\n```json\n{json_data}```\nBitcoin data in USD in CSV\n```csv\n{bitcoin_data_csv}```\nNetwork stats in CSV\n```csv\n{network_stats_csv}```\nIndices data in USD in CSV\n```csv\n{indices_csv}```Bitcoin news in CSV\n```csv\n{bitcoin_news_csv}```",
+        "Recent Bitcoin trading data in KRW in JSON\n```json\n{json_data}```\nBitcoin data in USD in CSV\n```csv\n{bitcoin_data_csv}```\nNetwork stats in CSV\n```csv\n{network_stats_csv}```\nIndices data in USD in CSV\n```csv\n{indices_csv}```Bitcoin news in CSV\n```csv\n{bitcoin_news_csv}```",
         json_data=json_data,
         bitcoin_data_csv=bitcoin_data_csv,
         network_stats_csv=network_stats_csv,
@@ -143,18 +136,14 @@ def fetch_network_stats():
 
 
 def buy_bitcoin():
-    pair = "XXBTZEUR"
-    ticker = kraken.get_ticker(pair)
-    ticker = {k: v[pair] for k, v in ticker.items()}
+    ticker = get_ticker("BTC")
 
     # average of ask, bid
-    btc_price = (float(ticker["a"][0]) + float(ticker["b"][0])) / 2
-
-    balance = kraken.get_account_balance()
+    btc_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
 
     btc_data = fetch_coinmarketcap_data(
         "/v2/cryptocurrency/quotes/latest",
-        params={"symbol": "BTC", "convert": "EUR"},
+        params={"symbol": "BTC", "convert": "KRW"},
     )["BTC"][0]
 
     input = dict(
@@ -162,15 +151,15 @@ def buy_bitcoin():
         circulating_supply=btc_data["circulating_supply"],
         max_supply=btc_data["max_supply"],
         total_supply=btc_data["total_supply"],
-        **btc_data["quote"]["EUR"],
+        **btc_data["quote"]["KRW"],
     )
 
     # 오늘 날짜와 한 달 전 날짜 설정
     end_date = timezone.localdate()
     start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # bitcoin data in Euro
-    bitcoin_data = fetch_crypto_data("BTC", "EUR", 30)
+    # bitcoin data in KRW
+    bitcoin_data = fetch_crypto_data("BTC", "KRW", 30)
     df = pd.DataFrame(bitcoin_data)
     df = df.drop(columns=["conversionType", "conversionSymbol"])
     bitcoin_data = df.to_csv(index=False)
@@ -216,72 +205,31 @@ def buy_bitcoin():
         return
 
     # buy Bitcoin by recommended amount
-    amount = result.amount / btc_price
-    logging.info(f"{btc_price=}, {amount=}")
+    logging.info(f"{btc_price=}, {result.amount=}")
 
-    is_test = False
-    start = timezone.now()
+    prev_balances = get_balances()
 
-    while True:
-        try:
-            r = kraken.api.add_standard_order(
-                pair=pair, type="buy", ordertype="market", volume=amount, validate=is_test
-            )
-            logging.info(f"add_standard_order: {r}")
-        except KrakenAPIError as e:
-            error = str(e)
-            if "EService:" in error:
-                logging.warning(error)
-                continue
-            else:
-                raise e
-
-        break
+    r = buy_ticker("BTC", result.amount)
+    logging.info(f"buy_ticker: {r}")
 
     # current balance and value after order
-    balance = kraken.get_account_balance()
-    btc_amount = balance["XXBT"]["amount"]
+    balances = get_balances()
+    btc_amount = float(balances["BTC"]["available"])
     btc_value = btc_amount * btc_price
-    euro_amount = balance["ZEUR"]["amount"]
+    krw_amount = float(balances["KRW"]["available"])
+    bought_btc = btc_amount - float(prev_balances["BTC"]["available"])
 
     send_message(
         "\n".join(
             [
-                f"Buy: {amount:,.8f} BTC ({result.amount}€)",
-                f"{btc_amount:,.5f}BTC {btc_value:,.2f}€ / {euro_amount:,.2f}€",
-                "BTC price: {:,.2f}€".format(btc_price),
+                f"Buy: {bought_btc:,.8f} BTC ({result.amount:,} KRW)",
+                f"{btc_amount:,.5f}BTC {btc_value:,.0f} / {krw_amount:,.0f} KRW",
+                "BTC price: {:,.0f}KRW".format(btc_price),
             ]
         )
     )
 
-    try:
-        # save trade history
-        df = kraken.get_trades(start=start.timestamp(), end=timezone.now().timestamp())[0]
-        if df.shape[0] > 0:
-            trades = [
-                Trade(
-                    txid=row["txid"],
-                    pair=row["pair"],
-                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-                    order_type=row["type"],
-                    price=row["price"],
-                    cost=row["cost"],
-                    volume=row["vol"],
-                    fee=row["fee"],
-                    margin=row["margin"],
-                    misc=row["misc"],
-                    raw=row.to_dict(),
-                )
-                for _, row in df.iterrows()
-            ]
-            trades.sort(key=lambda x: x.trade_at)
-
-            with ConnectionContextManager():
-                ret = Trade.objects.bulk_create(trades)
-
-            logging.info(f"Trade created: {len(ret)} - {ret}")
-    except Exception as e:
-        logging.warning(e)
+    # TODO: save trade history, show graph in view
 
 
 # CoinMarketCap 메인 페이지 URL
