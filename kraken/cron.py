@@ -14,6 +14,15 @@ from langchain_core.pydantic_v1 import Field
 from pykrakenapi.pykrakenapi import KrakenAPIError
 
 from django.conf import settings
+from django.db.models import Avg
+from django.db.models import Case
+from django.db.models import Count
+from django.db.models import ExpressionWrapper
+from django.db.models import F
+from django.db.models import FloatField
+from django.db.models import Max
+from django.db.models import Min
+from django.db.models import When
 from django.utils import timezone
 
 from core.db import ConnectionContextManager
@@ -343,35 +352,53 @@ def pretty_currency(value):
     return value
 
 
-# TODO: 데이터 7일 이상 쌓이면 7일 연속 상승한 코인 선택
 def select_coins_to_buy():
-    # 7일 변동률이 7% 이상이고 24시간 변동률이 양수인 코인을 선택
-    selected_listings = CryptoListing.objects.filter(
-        data_at__date=timezone.now().date(),
-        change_7d__gte=7,
-        change_24h__gt=0,
-        market_cap__gt=10_000_000,
-        volume_24h__gt=100_000,
-        rank__lt=300,
-    ).order_by("-change_7d", "-change_24h")[:10]
+    today = timezone.now().date()
+    start_date = today - timedelta(days=4)
+
+    # 최근 5일 동안 24시간 변동률이 모두 1% 이상인 코인을 선택하고 필요한 정보를 한번에 가져옴
+    coins = (
+        CryptoListing.objects.filter(
+            data_at__date__range=(start_date, today),
+            market_cap__gt=10_000_000,
+            volume_24h__gt=100_000,
+            rank__lt=300,
+        )
+        .values("symbol")
+        .annotate(
+            count_positive=Count(Case(When(change_24h__gt=0, then=1))),
+            first_price=Min("price"),
+            last_price=Max("price"),
+            avg_market_cap=Avg("market_cap"),
+        )
+        .filter(count_positive=5)
+        .annotate(
+            change_5d=ExpressionWrapper(
+                (F("last_price") - F("first_price")) / F("first_price") * 100,
+                output_field=FloatField(),
+            )
+        )
+        .order_by("-change_5d", "-avg_market_cap")[:10]
+    )
 
     text_list = []
 
     # 선택된 코인 정보 출력
-    for i, listing in enumerate(selected_listings, 1):
-        text_list.extend([f"{i}. {listing.name} ({listing.symbol})", f"Price: ${listing.price:.4f}"])
+    for i, coin in enumerate(coins, 1):
+        text_list.extend([f"{i}. {coin['symbol']} (${coin['last_price']:.4f})"])
+        text_list.append(f"Price 5 days ago: ${coin['first_price']:.4f}")
+        text_list.append(f"Change over 5 days: {coin['change_5d']:.2f}%")
 
-        values = "/".join(f"{val:.1f}%" for val in (listing.change_7d, listing.change_24h, listing.change_1h))
-        text_list.append(f"Change(7d/24/1h): {values}")
+        market_cap = pretty_currency(coin["avg_market_cap"])
+        text_list.extend([f"Average Market Cap: {market_cap}", ""])
 
-        market_cap, volume = [pretty_currency(val) for val in (listing.market_cap, listing.volume_24h)]
-        text_list.extend([f"Market Cap: {market_cap}", f"Volume(24h): {volume}", ""])
+    if text_list:
+        text = "\n".join(text_list)
+        text = f"Selected Coins to Buy:\n```\n{text}```"
+    else:
+        text = "No coins met the criteria for buying\."
 
-    text = "\n".join(text_list)
-    send_message(
-        f"Selected Coins to Buy:\n```\n{text}```",
-        parse_mode=telegram.ParseMode.MARKDOWN_V2,
-    )
+    send_message(text, parse_mode=telegram.ParseMode.MARKDOWN_V2)
 
 
 def insert_trade_history():
