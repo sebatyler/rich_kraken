@@ -17,7 +17,7 @@ RUN mkdir -p ${FUNCTION_DIR}
 WORKDIR ${FUNCTION_DIR}
 
 RUN python -m venv venv_deploy
-ENV PATH ${FUNCTION_DIR}/venv_deploy/bin:$PATH
+ENV PATH=${FUNCTION_DIR}/venv_deploy/bin:$PATH
 
 ARG USE_CACHE=1
 ARG PACKAGE_FILE=requirements.txt
@@ -33,9 +33,9 @@ RUN --mount=type=cache,target=/venv_cache,id=${PACKAGE_FILE}.rich_kraken.deploy 
 
 # AWS confidential from arguments to run 'aws s3'
 ARG aws_access_key_id
-ENV AWS_ACCESS_KEY_ID ${aws_access_key_id}
+ENV AWS_ACCESS_KEY_ID=${aws_access_key_id}
 ARG aws_secret_access_key
-ENV AWS_SECRET_ACCESS_KEY ${aws_secret_access_key}
+ENV AWS_SECRET_ACCESS_KEY=${aws_secret_access_key}
 ENV AWS_DEFAULT_REGION ap-northeast-2
 
 COPY ./ ./
