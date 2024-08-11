@@ -75,14 +75,17 @@ def get_recommendation(
     data, bitcoin_data_csv, network_stats_csv, indices_csv, bitcoin_news_csv
 ) -> InvestRecommendation:
     json_data = json.dumps(data)
-    prompt = """
+    amount_min = 5_000
+    amount_max = 30_000
+    amount_step = 5_000
+    prompt = f"""
 You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format (including the user's current Bitcoin balance) and other data in CSV format.
-Your task is to analyze the data and recommend a KRW amount to purchase Bitcoin worth between 10,000 and 30,000 in multiples of 5,000 (e.g., 10,000, 15,000, ..., 30,000) at the same time every day.
+Your task is to analyze the data and recommend a KRW amount to purchase Bitcoin worth between {amount_min} and {amount_max} in multiples of {amount_step} (e.g., {amount_min}, {amount_min + amount_step}, ..., {amount_max}) at the same time every day.
 If you don't think it's a good time to purchase any Bitcoin, output 0.
 
 Consider the user's current Bitcoin balance when making your recommendation. If the user already has a significant amount of Bitcoin, you may want to recommend a lower purchase amount or no purchase at all.
 
-Based on the data, what amount of KRW between 10,000 and 30,000 (in multiples of 5,000) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
+Based on the data, what amount of KRW between {amount_min} and {amount_max} (in multiples of {amount_step}) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
 
 The output should be in YAML format and keys should be `scratchpad`, `reasoning`, and `amount`.
 
@@ -95,7 +98,7 @@ reasoning: |
   [분석을 기반으로 권장하는 구매 금액에 대한 주요 이유를 한국어로 간단히 요약하세요. 왜 그 금액을 구매하는 것이 좋다고 생각하는지 또는 왜 구매를 권장하지 않는지 설명하세요.]
 
 amount: |
-  [추천하는 구매 금액을 Integer로 입력하세요. 10,000 KRW에서 30,000 KRW 사이의 금액이어야 하며, 5,000 KRW의 배수여야 합니다.]
+  [추천하는 구매 금액을 Integer로 입력하세요. {amount_min} KRW에서 {amount_max} KRW 사이의 금액이어야 하며, {amount_step} KRW의 배수여야 합니다.]
 ```""".strip()
     return invoke_llm(
         InvestRecommendation,
