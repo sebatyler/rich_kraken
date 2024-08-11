@@ -11,7 +11,6 @@ import telegram
 import yfinance as yf
 from langchain_core.pydantic_v1 import BaseModel
 from langchain_core.pydantic_v1 import Field
-from pykrakenapi.pykrakenapi import KrakenAPIError
 
 from django.conf import settings
 from django.db.models import Avg
@@ -77,9 +76,11 @@ def get_recommendation(
 ) -> InvestRecommendation:
     json_data = json.dumps(data)
     prompt = """
-You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format and other data in CSV format.
+You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format (including the user's current Bitcoin balance) and other data in CSV format.
 Your task is to analyze the data and recommend a KRW amount to purchase Bitcoin worth between 10,000 and 30,000 in multiples of 5,000 (e.g., 10,000, 15,000, ..., 30,000) at the same time every day.
 If you don't think it's a good time to purchase any Bitcoin, output 0.
+
+Consider the user's current Bitcoin balance when making your recommendation. If the user already has a significant amount of Bitcoin, you may want to recommend a lower purchase amount or no purchase at all.
 
 Based on the data, what amount of KRW between 10,000 and 30,000 (in multiples of 5,000) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
 
@@ -99,7 +100,27 @@ amount: |
     return invoke_llm(
         InvestRecommendation,
         prompt,
-        "Recent Bitcoin trading data in KRW in JSON\n```json\n{json_data}```\nBitcoin data in USD in CSV\n```csv\n{bitcoin_data_csv}```\nNetwork stats in CSV\n```csv\n{network_stats_csv}```\nIndices data in USD in CSV\n```csv\n{indices_csv}```Bitcoin news in CSV\n```csv\n{bitcoin_news_csv}```",
+        """
+Recent Bitcoin trading data in KRW in JSON (including user's current Bitcoin balance)
+```json
+{json_data}
+```
+Bitcoin data in USD in CSV
+```csv
+{bitcoin_data_csv}
+```
+Network stats in CSV
+```csv
+{network_stats_csv}
+```
+Indices data in USD in CSV
+```csv
+{indices_csv}
+```
+Bitcoin news in CSV
+```csv
+{bitcoin_news_csv}
+```""".strip(),
         json_data=json_data,
         bitcoin_data_csv=bitcoin_data_csv,
         network_stats_csv=network_stats_csv,
@@ -146,12 +167,15 @@ def buy_bitcoin():
         params={"symbol": "BTC", "convert": "KRW"},
     )["BTC"][0]
 
+    prev_balances = get_balances()
+
     input = dict(
         ticker,
         circulating_supply=btc_data["circulating_supply"],
         max_supply=btc_data["max_supply"],
         total_supply=btc_data["total_supply"],
         **btc_data["quote"]["KRW"],
+        my_bitcoin_balance=prev_balances["BTC"],
     )
 
     # 오늘 날짜와 한 달 전 날짜 설정
@@ -206,8 +230,6 @@ def buy_bitcoin():
 
     # buy Bitcoin by recommended amount
     logging.info(f"{btc_price=}, {result.amount=}")
-
-    prev_balances = get_balances()
 
     r = buy_ticker("BTC", result.amount)
     logging.info(f"buy_ticker: {r}")
