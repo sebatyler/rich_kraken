@@ -326,7 +326,7 @@ def select_coins_to_buy():
     today = timezone.now().date()
     start_date = today - timedelta(days=4)
 
-    # 최근 5일 동안 24시간 변동률이 모두 1% 이상인 코인을 선택하고 필요한 정보를 한번에 가져옴
+    # 최근 5일 동안 24시간 변동률이 모두 0.5% 이상인 코인을 선택하고 필요한 정보를 한번에 가져옴
     coins = (
         CryptoListing.objects.filter(
             data_at__date__range=(start_date, today),
@@ -336,7 +336,7 @@ def select_coins_to_buy():
         )
         .values("symbol")
         .annotate(
-            count_positive=Count(Case(When(change_24h__gt=0, then=1))),
+            count_positive=Count(Case(When(change_24h__gte=0.5, then=1))),
             first_price=Min("price"),
             last_price=Max("price"),
             avg_market_cap=Avg("market_cap"),
