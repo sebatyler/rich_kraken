@@ -28,7 +28,7 @@ COPY ${PACKAGE_FILE} ./
 # Install packages with cache
 RUN --mount=type=cache,target=/venv_cache,id=${PACKAGE_FILE}.rich_kraken.deploy \
     cp -a /venv_cache/* ${FUNCTION_DIR}/venv_deploy/; \
-    pip install --no-cache-dir -r ${PACKAGE_FILE} && zappa -v; \
+    pip install uv && uv pip install --no-cache-dir -r ${PACKAGE_FILE} && zappa -v; \
     [ $USE_CACHE -eq 1 ] && cp -a ${FUNCTION_DIR}/venv_deploy/* /venv_cache/ || echo readonly cache
 
 # AWS confidential from arguments to run 'aws s3'
