@@ -11,6 +11,7 @@ import telegram
 import yfinance as yf
 from langchain_core.pydantic_v1 import BaseModel
 from langchain_core.pydantic_v1 import Field
+from langchain_core.pydantic_v1 import validator
 
 from django.conf import settings
 from django.db.models import Avg
@@ -42,6 +43,53 @@ if not settings.DEBUG:
     yf.set_tz_cache_location("/tmp/yf")
 
 
+class CryptoConfig(BaseModel):
+    enabled: bool = Field(..., description="Whether this cryptocurrency is enabled for trading")
+    min_amount: int = Field(..., description="Minimum amount in KRW to invest")
+    max_amount: int = Field(..., description="Maximum amount in KRW to invest")
+    step_amount: int = Field(..., description="Step amount in KRW for investment increments")
+
+    @validator("min_amount", "max_amount", "step_amount")
+    def validate_amounts(cls, v):
+        if v <= 0:
+            raise ValueError("Amount must be positive")
+        return v
+
+    @validator("max_amount")
+    def validate_max_amount(cls, v, values):
+        if "min_amount" in values and v < values["min_amount"]:
+            raise ValueError("max_amount must be greater than min_amount")
+        return v
+
+    @validator("step_amount")
+    def validate_step_amount(cls, v, values):
+        if "max_amount" in values and v > values["max_amount"]:
+            raise ValueError("step_amount must not be greater than max_amount")
+        return v
+
+
+CRYPTO_CONFIGS = {
+    "BTC": CryptoConfig(
+        enabled=False,  # 비트코인 비활성화
+        min_amount=5_000,
+        max_amount=30_000,
+        step_amount=5_000,
+    ),
+    "ETH": CryptoConfig(
+        enabled=True,
+        min_amount=5_000,
+        max_amount=20_000,
+        step_amount=5_000,
+    ),
+    "DOGE": CryptoConfig(
+        enabled=True,
+        min_amount=5_000,
+        max_amount=20_000,
+        step_amount=5_000,
+    ),
+}
+
+
 class BaseStrippedModel(BaseModel):
     def __init__(self, *args, **kwargs):
         kwargs = {k: v.strip() if isinstance(v, str) else v for k, v in kwargs.items()}
@@ -52,6 +100,7 @@ class InvestRecommendation(BaseStrippedModel):
     scratchpad: str = Field(..., description="The scratchpad text")
     reasoning: str = Field(..., description="The reasoning text")
     amount: int = Field(..., description="The amount in KRW to invest")
+    symbol: str = Field(..., description="The cryptocurrency symbol")
 
 
 def send_message(text, **kwargs):
@@ -72,63 +121,79 @@ def fetch_coinmarketcap_data(path, params=None):
 
 
 def get_recommendation(
-    data, bitcoin_data_csv, network_stats_csv, indices_csv, bitcoin_news_csv
+    symbol: str, data, crypto_data_csv, network_stats_csv, indices_csv, crypto_news_csv
 ) -> InvestRecommendation:
     json_data = json.dumps(data)
-    amount_min = 5_000
-    amount_max = 30_000
-    amount_step = 5_000
-    prompt = f"""
-You are a Bitcoin investment advisor. You will be provided with recent Bitcoin trading data in JSON format (including the user's current Bitcoin balance) and other data in CSV format.
-Your task is to analyze the data and recommend a KRW amount to purchase Bitcoin worth between {amount_min} and {amount_max} in multiples of {amount_step} (e.g., {amount_min}, {amount_min + amount_step}, ..., {amount_max}) at the same time every day.
-If you don't think it's a good time to purchase any Bitcoin, output 0.
+    config = CRYPTO_CONFIGS[symbol]
+    amount_min = config.min_amount
+    amount_max = config.max_amount
+    amount_step = config.step_amount
 
-Consider the user's current Bitcoin balance when making your recommendation. If the user already has a significant amount of Bitcoin, you may want to recommend a lower purchase amount or no purchase at all.
-
-Based on the data, what amount of KRW between {amount_min} and {amount_max} (in multiples of {amount_step}) would you recommend purchasing Bitcoin at the same time every day? If you don't recommend any purchase, output 0.
-
-The output should be in YAML format and keys should be `scratchpad`, `reasoning`, and `amount`.
-
-Output example:
-```yaml
-scratchpad: |
-  [여기에 최근 비트코인 데이터의 분석과 생각 과정을 한국어로 간단히 적으세요. 현재 가격이 개장 가격 및 일일 고점/저점 대비 어떤지, 거래량, 전반적인 추세 등을 고려하세요.]
-
-reasoning: |
-  [분석을 기반으로 권장하는 구매 금액에 대한 주요 이유를 한국어로 간단히 요약하세요. 왜 그 금액을 구매하는 것이 좋다고 생각하는지 또는 왜 구매를 권장하지 않는지 설명하세요.]
-
-amount: |
-  [추천하는 구매 금액을 Integer로 입력하세요. {amount_min} KRW에서 {amount_max} KRW 사이의 금액이어야 하며, {amount_step} KRW의 배수여야 합니다.]
-```""".strip()
-    return invoke_llm(
-        InvestRecommendation,
-        prompt,
-        """
-Recent Bitcoin trading data in KRW in JSON (including user's current Bitcoin balance)
-```json
-{json_data}
-```
-Bitcoin data in USD in CSV
-```csv
-{bitcoin_data_csv}
-```
+    if symbol == "BTC":
+        network_stats = f"""
 Network stats in CSV
 ```csv
 {network_stats_csv}
 ```
-Indices data in USD in CSV
+""".strip()
+    else:
+        network_stats = ""
+
+    data_description = """
+Recent {symbol} trading data in KRW in JSON (including user's current {symbol} balance)
+```json
+{json_data}
+```
+{symbol} data in USD in CSV
+```csv
+{crypto_data_csv}
+```
+{network_stats}
+Indices data in CSV
 ```csv
 {indices_csv}
 ```
-Bitcoin news in CSV
+{symbol} news in CSV
 ```csv
-{bitcoin_news_csv}
-```""".strip(),
+{crypto_news_csv}
+```
+""".strip()
+
+    prompt = f"""
+You are a cryptocurrency investment advisor. You will be provided with recent {symbol} trading data in JSON format (including the user's current {symbol} balance) and other data in CSV format.
+Your task is to analyze the data and recommend a KRW amount to purchase {symbol} worth between {amount_min} and {amount_max} in multiples of {amount_step} at the same time every day.
+If you don't think it's a good time to purchase any {symbol}, output 0.
+
+Consider the user's current {symbol} balance when making your recommendation. If the user already has a significant amount of {symbol}, you may want to recommend a lower purchase amount or no purchase at all.
+
+Based on the data, what amount of KRW between {amount_min} and {amount_max} (in multiples of {amount_step}) would you recommend purchasing {symbol} at the same time every day? If you don't recommend any purchase, output 0.
+
+The output should be in YAML format and keys should be `scratchpad`, `reasoning`, `amount`, and `symbol`.
+
+Output example:
+```yaml
+scratchpad: |
+  [여기에 최근 {symbol} 데이터의 분석과 생각 과정을 한국어로 간단히 적으세요.]
+
+reasoning: |
+  [분석을 기반으로 권장하는 구매 금액에 대한 주요 이유를 한국어로 간단히 요약하세요.]
+
+amount: |
+  [추천하는 구매 금액을 Integer로 입력하세요]
+
+symbol: "{symbol}"
+```""".strip()
+
+    return invoke_llm(
+        InvestRecommendation,
+        prompt,
+        data_description,
+        symbol=symbol,
         json_data=json_data,
-        bitcoin_data_csv=bitcoin_data_csv,
-        network_stats_csv=network_stats_csv,
+        crypto_data_csv=crypto_data_csv,
+        network_stats=network_stats,
         indices_csv=indices_csv,
-        bitcoin_news_csv=bitcoin_news_csv,
+        crypto_news_csv=crypto_news_csv,
     )
 
 
@@ -159,102 +224,105 @@ def fetch_network_stats():
     return data
 
 
-def buy_bitcoin():
-    ticker = get_ticker("BTC")
-
-    # average of ask, bid
-    btc_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
-
-    btc_data = fetch_coinmarketcap_data(
-        "/v2/cryptocurrency/quotes/latest",
-        params={"symbol": "BTC", "convert": "KRW"},
-    )["BTC"][0]
-
-    prev_balances = get_balances()
-
-    input = dict(
-        ticker,
-        circulating_supply=btc_data["circulating_supply"],
-        max_supply=btc_data["max_supply"],
-        total_supply=btc_data["total_supply"],
-        **btc_data["quote"]["KRW"],
-        my_bitcoin_balance=prev_balances["BTC"],
-    )
-
+def buy_crypto():
     # 오늘 날짜와 한 달 전 날짜 설정
     end_date = timezone.localdate()
     start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # bitcoin data in KRW
-    bitcoin_data = fetch_crypto_data("BTC", "KRW", 30)
-    df = pd.DataFrame(bitcoin_data)
-    df = df.drop(columns=["conversionType", "conversionSymbol"])
-    bitcoin_data = df.to_csv(index=False)
-
-    # fundamental data
-    network_stats = fetch_network_stats()
-    df = pd.DataFrame(network_stats, index=[0])
-    network_stats = df.to_csv(index=False)
-
-    # bitcoin news
-    bitcoin_news = fetch_news(start_date, "bitcoin")
-    df = pd.DataFrame(bitcoin_news)
-    df = df[["source", "title", "description", "publishedAt", "content"]]
-    df["source"] = df["source"].apply(lambda x: x["name"])
-    bitcoin_news = df.to_csv(index=False)
-
     # 유가, 다우존스, S&P 500, 나스닥
     indices = ["CL=F", "^DJI", "^GSPC", "^IXIC"]
     indices_data = yf.download(indices, start=start_date)
-    indices_data = indices_data["Close"].to_csv()
+    indices_data_csv = indices_data["Close"].to_csv()
 
-    # TODO: 유가(WTI), 미국 실업률, 미국 기준금리, 소비자 물가 지수(CPI)
+    for symbol, config in CRYPTO_CONFIGS.items():
+        if not config.enabled:
+            continue
 
-    # get recommendation
-    result, exc = [None] * 2
-    for _ in range(3):
-        try:
-            result = get_recommendation(input, bitcoin_data, network_stats, indices_data, bitcoin_news)
-            break
-        except Exception as e:
-            logging.warning(e)
-            exc = e
+        ticker = get_ticker(symbol)
 
-    if not result and exc:
-        raise exc
+        # average of ask, bid
+        crypto_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
 
-    send_message(
-        f"```\n{result.scratchpad}\n\n{result.reasoning}```",
-        parse_mode=telegram.ParseMode.MARKDOWN_V2,
-    )
+        crypto_data = fetch_coinmarketcap_data(
+            "/v2/cryptocurrency/quotes/latest",
+            params={"symbol": symbol, "convert": "KRW"},
+        )[symbol][0]
 
-    if result.amount == 0:
-        return
+        prev_balances = get_balances()
 
-    # buy Bitcoin by recommended amount
-    logging.info(f"{btc_price=}, {result.amount=}")
-
-    r = buy_ticker("BTC", result.amount)
-    logging.info(f"buy_ticker: {r}")
-
-    # current balance and value after order
-    balances = get_balances()
-    btc_amount = float(balances["BTC"]["available"])
-    btc_value = btc_amount * btc_price
-    krw_amount = float(balances["KRW"]["available"])
-    bought_btc = btc_amount - float(prev_balances["BTC"]["available"])
-
-    send_message(
-        "\n".join(
-            [
-                f"Buy: {bought_btc:,.8f} BTC ({result.amount:,} KRW)",
-                f"{btc_amount:,.5f}BTC {btc_value:,.0f} / {krw_amount:,.0f} KRW",
-                "BTC price: {:,.0f}KRW".format(btc_price),
-            ]
+        input = dict(
+            ticker,
+            circulating_supply=crypto_data["circulating_supply"],
+            max_supply=crypto_data["max_supply"],
+            total_supply=crypto_data["total_supply"],
+            **crypto_data["quote"]["KRW"],
+            my_crypto_balance=prev_balances[symbol],
         )
-    )
 
-    # TODO: save trade history, show graph in view
+        # crypto data in KRW
+        crypto_data = fetch_crypto_data(symbol, "KRW", 30)
+        df = pd.DataFrame(crypto_data)
+        df = df.drop(columns=["conversionType", "conversionSymbol"])
+        crypto_data_csv = df.to_csv(index=False)
+
+        # network stats (비트코인일 때만)
+        network_stats_csv = ""
+        if symbol == "BTC":
+            network_stats = fetch_network_stats()
+            df = pd.DataFrame(network_stats, index=[0])
+            network_stats_csv = df.to_csv(index=False)
+
+        # crypto news
+        crypto_news = fetch_news(start_date, symbol)
+        df = pd.DataFrame(crypto_news)
+        df = df[["source", "title", "description", "publishedAt", "content"]]
+        df["source"] = df["source"].apply(lambda x: x["name"])
+        crypto_news_csv = df.to_csv(index=False)
+
+        # get recommendation
+        result, exc = [None] * 2
+        for _ in range(3):
+            try:
+                result = get_recommendation(
+                    symbol, input, crypto_data_csv, network_stats_csv, indices_data_csv, crypto_news_csv
+                )
+                break
+            except Exception as e:
+                logging.warning(e)
+                exc = e
+
+        if not result and exc:
+            raise exc
+
+        send_message(
+            f"```\n{symbol} 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
+            parse_mode=telegram.ParseMode.MARKDOWN_V2,
+        )
+
+        if result.amount == 0:
+            continue
+
+        # buy crypto by recommended amount
+        logging.info(f"{symbol} {crypto_price=}, {result.amount=}")
+
+        # r = buy_ticker(symbol, result.amount)
+        # logging.info(f"buy_ticker: {r}")
+
+        # current balance and value after order
+        balances = get_balances()
+        crypto_amount = float(balances[symbol]["available"])
+        crypto_value = crypto_amount * crypto_price
+        krw_amount = float(balances["KRW"]["available"])
+        bought_crypto = crypto_amount - float(prev_balances[symbol]["available"])
+
+        price_msg = "{:,.0f}".format(crypto_price)
+        message_lines = [
+            f"Buy: {bought_crypto:,.8f} {symbol} ({result.amount:,} KRW)",
+            f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
+            f"{symbol} price: {price_msg}KRW",
+        ]
+
+        send_message("\n".join(message_lines))
 
 
 # CoinMarketCap 메인 페이지 URL
