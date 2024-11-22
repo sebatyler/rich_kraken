@@ -43,7 +43,7 @@ def get_response(action, method="post", payload=None, public=False):
 def get_balances():
     data = get_response(
         action="/v2.1/account/balance",
-        payload={"access_token": ACCESS_TOKEN, "currencies": ["KRW", "BTC"]},
+        payload={"access_token": ACCESS_TOKEN, "currencies": ["KRW", "BTC", "ETH", "DOGE"]},
     )
     return {balance["currency"]: balance for balance in data["balances"]}
 

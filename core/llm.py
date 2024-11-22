@@ -9,7 +9,7 @@ from langchain_anthropic import ChatAnthropic
 # Initialize the LLM
 chat_anthropic = ChatAnthropic(
     temperature=0,
-    model_name="claude-3-5-sonnet-20240620",
+    model_name="claude-3-5-sonnet-20241022",
     anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
     timeout=30,
     max_retries=0,

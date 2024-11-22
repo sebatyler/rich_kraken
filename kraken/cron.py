@@ -140,9 +140,9 @@ def fetch_crypto_data(fsym, tsym, limit):
     return data["Data"]
 
 
-def fetch_bitcoin_news(from_date):
+def fetch_news(from_date, query):
     url = "https://newsapi.org/v2/everything"
-    parameters = {"q": "bitcoin", "from": from_date, "pageSize": 20}
+    parameters = {"q": query, "from": from_date, "pageSize": 20}
     response = requests.get(
         url,
         params=parameters,
@@ -197,7 +197,7 @@ def buy_bitcoin():
     network_stats = df.to_csv(index=False)
 
     # bitcoin news
-    bitcoin_news = fetch_bitcoin_news(from_date=start_date)
+    bitcoin_news = fetch_news(start_date, "bitcoin")
     df = pd.DataFrame(bitcoin_news)
     df = df[["source", "title", "description", "publishedAt", "content"]]
     df["source"] = df["source"].apply(lambda x: x["name"])
