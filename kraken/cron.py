@@ -35,6 +35,7 @@ from kraken.models import Kraken
 from .models import CryptoListing
 from .models import Trade
 
+# https://t.me/RichSebaBot
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
 kraken = Kraken()
 
@@ -77,14 +78,20 @@ CRYPTO_CONFIGS = {
     ),
     "ETH": CryptoConfig(
         enabled=True,
+        min_amount=10_000,
+        max_amount=30_000,
+        step_amount=5_000,
+    ),
+    "DOGE": CryptoConfig(
+        enabled=False,
         min_amount=5_000,
         max_amount=20_000,
         step_amount=5_000,
     ),
-    "DOGE": CryptoConfig(
+    "DOT": CryptoConfig(
         enabled=True,
-        min_amount=5_000,
-        max_amount=20_000,
+        min_amount=10_000,
+        max_amount=30_000,
         step_amount=5_000,
     ),
 }
