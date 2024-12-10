@@ -78,14 +78,14 @@ CRYPTO_CONFIGS = {
     ),
     "ETH": CryptoConfig(
         enabled=True,
-        min_amount=10_000,
+        min_amount=5_000,
         max_amount=30_000,
         step_amount=5_000,
     ),
     "DOGE": CryptoConfig(
         enabled=False,
         min_amount=5_000,
-        max_amount=20_000,
+        max_amount=30_000,
         step_amount=5_000,
     ),
     "DOT": CryptoConfig(
@@ -256,6 +256,7 @@ def buy_crypto():
         )[symbol][0]
 
         prev_balances = get_balances()
+        crypto_balance = prev_balances.get(symbol) or {}
 
         input = dict(
             ticker,
@@ -263,7 +264,7 @@ def buy_crypto():
             max_supply=crypto_data["max_supply"],
             total_supply=crypto_data["total_supply"],
             **crypto_data["quote"]["KRW"],
-            my_crypto_balance=prev_balances[symbol],
+            my_crypto_balance=crypto_balance,
         )
 
         # crypto data in KRW
@@ -320,7 +321,7 @@ def buy_crypto():
         crypto_amount = float(balances[symbol]["available"])
         crypto_value = crypto_amount * crypto_price
         krw_amount = float(balances["KRW"]["available"])
-        bought_crypto = crypto_amount - float(prev_balances[symbol]["available"])
+        bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
 
         price_msg = "{:,.0f}".format(crypto_price)
         message_lines = [

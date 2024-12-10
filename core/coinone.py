@@ -41,9 +41,11 @@ def get_response(action, method="post", payload=None, public=False):
 
 
 def get_balances():
+    from kraken.cron import CRYPTO_CONFIGS
+
     data = get_response(
         action="/v2.1/account/balance",
-        payload={"access_token": ACCESS_TOKEN, "currencies": ["KRW", "BTC", "ETH", "DOGE"]},
+        payload={"access_token": ACCESS_TOKEN, "currencies": ["KRW", *CRYPTO_CONFIGS.keys()]},
     )
     return {balance["currency"]: balance for balance in data["balances"]}
 
