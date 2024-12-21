@@ -77,7 +77,7 @@ CRYPTO_CONFIGS = {
         step_amount=5_000,
     ),
     "ETH": CryptoConfig(
-        enabled=True,
+        enabled=False,
         min_amount=5_000,
         max_amount=30_000,
         step_amount=5_000,
@@ -89,8 +89,20 @@ CRYPTO_CONFIGS = {
         step_amount=5_000,
     ),
     "DOT": CryptoConfig(
-        enabled=True,
+        enabled=False,
         min_amount=10_000,
+        max_amount=30_000,
+        step_amount=5_000,
+    ),
+    "FET": CryptoConfig(
+        enabled=True,
+        min_amount=5_000,
+        max_amount=30_000,
+        step_amount=5_000,
+    ),
+    "WLD": CryptoConfig(
+        enabled=True,
+        min_amount=5_000,
         max_amount=30_000,
         step_amount=5_000,
     ),
