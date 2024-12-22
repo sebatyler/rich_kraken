@@ -424,8 +424,9 @@ def buy_crypto():
         # buy crypto
         logging.info(f"{symbol} {crypto_price=}, {amount=}")
 
-        # r = buy_ticker(symbol, amount)
-        # logging.info(f"buy_ticker: {r}")
+        if not settings.DEBUG:
+            r = buy_ticker(symbol, amount)
+            logging.info(f"buy_ticker: {r}")
 
         # current balance and value after order
         balances = get_balances()
