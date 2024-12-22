@@ -46,10 +46,10 @@ if not settings.DEBUG:
 
 
 class CryptoConfig(BaseModel):
-    enabled: bool = Field(..., description="Whether this cryptocurrency is enabled for trading")
-    min_amount: int = Field(..., description="Minimum amount in KRW to invest")
-    max_amount: int = Field(..., description="Maximum amount in KRW to invest")
-    step_amount: int = Field(..., description="Step amount in KRW for investment increments")
+    enabled: bool = Field(default=True, description="Whether this cryptocurrency is enabled for trading")
+    min_amount: int = Field(default=5_000, description="Minimum amount in KRW to invest")
+    max_amount: int = Field(default=30_000, description="Maximum amount in KRW to invest")
+    step_amount: int = Field(default=5_000, description="Step amount in KRW for investment increments")
 
     @field_validator("min_amount", "max_amount", "step_amount")
     @classmethod
@@ -76,48 +76,16 @@ class CryptoConfig(BaseModel):
 
 
 CRYPTO_CONFIGS = {
-    "BTC": CryptoConfig(
-        enabled=False,  # 비활성화
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "ETH": CryptoConfig(
-        enabled=False,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "DOGE": CryptoConfig(
-        enabled=True,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "SOL": CryptoConfig(
-        enabled=True,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "DOT": CryptoConfig(
-        enabled=True,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "FET": CryptoConfig(
-        enabled=True,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
-    "WLD": CryptoConfig(
-        enabled=True,
-        min_amount=5_000,
-        max_amount=30_000,
-        step_amount=5_000,
-    ),
+    "BTC": CryptoConfig(enabled=False),
+    "ETH": CryptoConfig(enabled=False),
+    "DOGE": CryptoConfig(),
+    "SOL": CryptoConfig(),
+    "DOT": CryptoConfig(),
+    "FET": CryptoConfig(),
+    "WLD": CryptoConfig(),
+    "STRK": CryptoConfig(),
+    "BLAST": CryptoConfig(),
+    "MOVE": CryptoConfig(),
 }
 
 
