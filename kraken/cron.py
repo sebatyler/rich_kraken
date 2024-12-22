@@ -9,9 +9,9 @@ import pandas as pd
 import requests
 import telegram
 import yfinance as yf
-from langchain_core.pydantic_v1 import BaseModel
-from langchain_core.pydantic_v1 import Field
-from langchain_core.pydantic_v1 import validator
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import field_validator
 
 from django.conf import settings
 from django.db.models import Avg
@@ -50,21 +50,26 @@ class CryptoConfig(BaseModel):
     max_amount: int = Field(..., description="Maximum amount in KRW to invest")
     step_amount: int = Field(..., description="Step amount in KRW for investment increments")
 
-    @validator("min_amount", "max_amount", "step_amount")
+    @field_validator("min_amount", "max_amount", "step_amount")
+    @classmethod
     def validate_amounts(cls, v):
         if v <= 0:
             raise ValueError("Amount must be positive")
         return v
 
-    @validator("max_amount")
-    def validate_max_amount(cls, v, values):
-        if "min_amount" in values and v < values["min_amount"]:
+    @field_validator("max_amount")
+    @classmethod
+    def validate_max_amount(cls, v, info):
+        min_amount = info.data.get("min_amount")
+        if min_amount is not None and v < min_amount:
             raise ValueError("max_amount must be greater than min_amount")
         return v
 
-    @validator("step_amount")
-    def validate_step_amount(cls, v, values):
-        if "max_amount" in values and v > values["max_amount"]:
+    @field_validator("step_amount")
+    @classmethod
+    def validate_step_amount(cls, v, info):
+        max_amount = info.data.get("max_amount")
+        if max_amount is not None and v > max_amount:
             raise ValueError("step_amount must not be greater than max_amount")
         return v
 

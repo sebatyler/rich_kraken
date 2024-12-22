@@ -5,12 +5,12 @@
 #    pip-compile
 #
 aiohttp==3.9.5
-    # via
-    #   langchain
-    #   langchain-community
+    # via langchain
 aiosignal==1.3.1
     # via aiohttp
-anthropic==0.25.7
+annotated-types==0.7.0
+    # via pydantic
+anthropic==0.42.0
     # via langchain-anthropic
 anyio==4.3.0
     # via
@@ -48,7 +48,9 @@ botocore==1.34.97
 build==1.0.3
     # via pip-tools
 cachetools==4.2.2
-    # via python-telegram-bot
+    # via
+    #   google-auth
+    #   python-telegram-bot
 certifi==2024.2.2
     # via
     #   httpcore
@@ -71,10 +73,6 @@ click==8.1.7
     #   pip-tools
 cryptography==42.0.5
     # via paramiko
-dataclasses-json==0.6.5
-    # via
-    #   langchain
-    #   langchain-community
 decorator==5.1.1
     # via
     #   fabric
@@ -109,16 +107,44 @@ executing==2.0.1
     # via stack-data
 fabric==3.2.2
     # via -r requirements.in
-filelock==3.14.0
-    # via huggingface-hub
+filetype==1.2.0
+    # via langchain-google-genai
 frozendict==2.4.4
     # via yfinance
 frozenlist==1.4.1
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2024.3.1
-    # via huggingface-hub
+google-ai-generativelanguage==0.6.10
+    # via google-generativeai
+google-api-core[grpc]==2.24.0
+    # via
+    #   google-ai-generativelanguage
+    #   google-api-python-client
+    #   google-generativeai
+google-api-python-client==2.156.0
+    # via google-generativeai
+google-auth==2.37.0
+    # via
+    #   google-ai-generativelanguage
+    #   google-api-core
+    #   google-api-python-client
+    #   google-auth-httplib2
+    #   google-generativeai
+google-auth-httplib2==0.2.0
+    # via google-api-python-client
+google-generativeai==0.8.3
+    # via langchain-google-genai
+googleapis-common-protos==1.66.0
+    # via
+    #   google-api-core
+    #   grpcio-status
+grpcio==1.68.1
+    # via
+    #   google-api-core
+    #   grpcio-status
+grpcio-status==1.68.1
+    # via google-api-core
 h11==0.14.0
     # via httpcore
 hjson==3.1.0
@@ -127,10 +153,14 @@ html5lib==1.1
     # via yfinance
 httpcore==1.0.5
     # via httpx
+httplib2==0.22.0
+    # via
+    #   google-api-python-client
+    #   google-auth-httplib2
 httpx==0.27.0
-    # via anthropic
-huggingface-hub==0.23.0
-    # via tokenizers
+    # via
+    #   anthropic
+    #   langsmith
 idna==3.6
     # via
     #   anyio
@@ -147,39 +177,38 @@ jedi==0.19.1
     # via ipython
 jinja2==3.1.3
     # via -r requirements.in
+jiter==0.8.2
+    # via anthropic
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
     #   zappa
 jsonpatch==1.33
-    # via
-    #   langchain
-    #   langchain-core
+    # via langchain-core
 jsonpointer==2.4
     # via jsonpatch
 kappa==0.6.0
     # via zappa
 krakenex==2.2.1
     # via pykrakenapi
-langchain==0.1.17
+langchain==0.3.13
     # via -r requirements.in
-langchain-anthropic==0.1.11
+langchain-anthropic==0.3.1
     # via -r requirements.in
-langchain-community==0.0.36
-    # via langchain
-langchain-core==0.1.50
+langchain-core==0.3.28
     # via
     #   langchain
     #   langchain-anthropic
-    #   langchain-community
+    #   langchain-google-genai
     #   langchain-text-splitters
-langchain-text-splitters==0.0.1
+langchain-google-genai==2.0.7
+    # via -r requirements.in
+langchain-text-splitters==0.3.4
     # via langchain
-langsmith==0.1.54
+langsmith==0.2.4
     # via
     #   langchain
-    #   langchain-community
     #   langchain-core
 lxml==5.2.1
     # via yfinance
@@ -187,8 +216,6 @@ markupsafe==2.1.5
     # via
     #   jinja2
     #   werkzeug
-marshmallow==3.21.2
-    # via dataclasses-json
 matplotlib-inline==0.1.7
     # via ipython
 more-itertools==10.2.0
@@ -199,14 +226,11 @@ multidict==6.0.5
     #   yarl
 multitasking==0.0.11
     # via yfinance
-mypy-extensions==1.0.0
-    # via typing-inspect
 nasdaq-data-link==1.0.4
     # via -r requirements.in
 numpy==1.24.4
     # via
     #   langchain
-    #   langchain-community
     #   nasdaq-data-link
     #   pandas
     #   yfinance
@@ -215,9 +239,7 @@ orjson==3.10.3
 packaging==23.2
     # via
     #   build
-    #   huggingface-hub
     #   langchain-core
-    #   marshmallow
 pandas==2.0.3
     # via
     #   nasdaq-data-link
@@ -241,25 +263,51 @@ prettytable==3.10.0
     # via -r requirements.in
 prompt-toolkit==3.0.43
     # via ipython
+proto-plus==1.25.0
+    # via
+    #   google-ai-generativelanguage
+    #   google-api-core
+protobuf==5.29.2
+    # via
+    #   google-ai-generativelanguage
+    #   google-api-core
+    #   google-generativeai
+    #   googleapis-common-protos
+    #   grpcio-status
+    #   proto-plus
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
     # via stack-data
+pyasn1==0.6.1
+    # via
+    #   pyasn1-modules
+    #   rsa
+pyasn1-modules==0.4.1
+    # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==1.10.12
+pydantic==2.9.2
     # via
-    #   -r requirements.in
     #   anthropic
+    #   google-generativeai
     #   langchain
+    #   langchain-anthropic
     #   langchain-core
+    #   langchain-google-genai
     #   langsmith
+pydantic-core==2.23.4
+    # via pydantic
 pygments==2.18.0
     # via ipython
+pyjwt==2.10.1
+    # via -r requirements.in
 pykrakenapi==0.3.2
     # via -r requirements.in
 pynacl==1.5.0
     # via paramiko
+pyparsing==3.2.0
+    # via httplib2
 pyproject-hooks==1.0.0
     # via
     #   build
@@ -283,22 +331,24 @@ pytz==2024.1
 pyyaml==6.0.1
     # via
     #   cfn-flip
-    #   huggingface-hub
     #   kappa
     #   langchain
-    #   langchain-community
     #   langchain-core
     #   zappa
 requests==2.31.0
     # via
-    #   huggingface-hub
+    #   google-api-core
     #   krakenex
     #   langchain
-    #   langchain-community
     #   langsmith
     #   nasdaq-data-link
+    #   requests-toolbelt
     #   yfinance
     #   zappa
+requests-toolbelt==1.0.0
+    # via langsmith
+rsa==4.9
+    # via google-auth
 s3transfer==0.10.1
     # via boto3
 sentry-sdk[django]==2.1.1
@@ -321,9 +371,7 @@ sniffio==1.3.1
 soupsieve==2.5
     # via beautifulsoup4
 sqlalchemy==2.0.30
-    # via
-    #   langchain
-    #   langchain-community
+    # via langchain
 sqlparse==0.4.4
     # via django
 stack-data==0.6.3
@@ -331,19 +379,16 @@ stack-data==0.6.3
 tenacity==8.2.3
     # via
     #   langchain
-    #   langchain-community
     #   langchain-core
 text-unidecode==1.3
     # via python-slugify
-tokenizers==0.19.1
-    # via anthropic
 toml==0.10.2
     # via zappa
 tornado==6.4
     # via python-telegram-bot
 tqdm==4.66.4
     # via
-    #   huggingface-hub
+    #   google-generativeai
     #   zappa
 traitlets==5.14.3
     # via
@@ -354,17 +399,18 @@ troposphere==4.8.0
 typing-extensions==4.11.0
     # via
     #   anthropic
-    #   huggingface-hub
+    #   google-generativeai
     #   ipython
+    #   langchain-core
     #   pydantic
+    #   pydantic-core
     #   sqlalchemy
-    #   typing-inspect
-typing-inspect==0.9.0
-    # via dataclasses-json
 tzdata==2024.1
     # via pandas
 tzlocal==5.2
     # via apscheduler
+uritemplate==4.1.1
+    # via google-api-python-client
 urllib3==2.2.1
     # via
     #   botocore
