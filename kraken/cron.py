@@ -273,22 +273,24 @@ Indices data in USD in CSV
         if data["network_stats_csv"]:  # BTC인 경우
             kwargs[f"{symbol}_network_stats_csv"] = data["network_stats_csv"]
 
-    prompt = f"""You are a cryptocurrency investment advisor analyzing multiple cryptocurrencies to recommend the best investment choices. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
+    prompt = f"""You are an aggressive cryptocurrency investment advisor focusing on high-potential daily trading opportunities. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
 
 Available cryptocurrencies and their investment limits:
 {chr(10).join(config_descriptions)}
 
 Your task:
 1. Analyze each cryptocurrency's data considering:
-   - Current price and trading volume
-   - Price trends over the last 30 days
-   - Market news and sentiment
-   - User's current balance
-   - Overall market conditions (using indices data)
+   - Short-term price movements and momentum
+   - Trading volume spikes and trends
+   - Recent news impact and market sentiment
+   - Technical indicators and price patterns
+   - Potential catalysts for price movement
 
-2. Recommend the best 2 cryptocurrencies to invest in right now
-   - You can recommend 0 or 1 if market conditions are unfavorable
-   - Investment amount must be within the specified limits for each coin
+2. Recommend 1-2 cryptocurrencies with the highest potential for short-term gains
+   - MUST recommend at least 1 cryptocurrency regardless of market conditions
+   - Focus on coins showing strong momentum or potential reversal signals
+   - Look for opportunities in both upward and downward trends
+   - Investment amount must be within specified limits for each coin
    - Amount should be in multiples of the step amount
 
 The output should be in YAML format with these keys:
@@ -300,25 +302,24 @@ Example output:
 ```yaml
 scratchpad: |
   DOGE 분석:
-  - 현재가: 123.45 KRW
-  - 30일 추세: 상승세, 15% 상승
-  - 거래량: 전주 대비 30% 증가
-  - 뉴스: 긍정적인 시장 반응, 개발 진행 중
+  - 현재가: 123.45 KRW (전일대비 -5%)
+  - 거래량: 최근 4시간 동안 200% 급증
+  - 모멘텀: RSI 과매도 구간, 반등 가능성
+  - 뉴스: 새로운 개발 소식, 커뮤니티 활성화
 
   SOL 분석:
-  - 현재가: 456.78 KRW
-  - 30일 추세: 횡보, 변동성 낮음
-  - 거래량: 안정적 유지
-  - 뉴스: 신규 프로젝트 런칭 예정
+  - 현재가: 456.78 KRW (전일대비 +8%)
+  - 거래량: 꾸준한 상승세, 전주 대비 80% 증가
+  - 모멘텀: 상승 추세 지속 중, MACD 상향 돌파
+  - 뉴스: DeFi 프로젝트 런칭 임박
 
 reasoning: |
-  DOGE: 최근 개발 진전과 시장 관심도 증가로 단기 상승 가능성 높음
-  SOL: 안정적인 가격 흐름과 신규 프로젝트로 인한 성장 잠재력 보유
-  전반적인 시장 상황이 양호하여 분산 투자 추천
+  DOGE: 과매도 상태에서 거래량 급증은 강력한 반등 신호. 커뮤니티 활동 증가로 단기 상승 가능성 높음
+  SOL: 강한 상승 모멘텀과 함께 실질적인 개발 진전. 현재 추세가 이어질 것으로 예상
 
 recommendations:
   - symbol: "DOGE"
-    amount: 15000
+    amount: 20000
   - symbol: "SOL"
     amount: 10000
 ```
@@ -326,9 +327,11 @@ recommendations:
 Important notes:
 1. Write analysis and reasoning in Korean
 2. Use plain text format (no markdown syntax)
-3. Be specific about price trends and market indicators
-4. Consider risk distribution when recommending multiple coins
-5. Amounts must be within specified limits and in correct step sizes"""
+3. Focus on short-term trading signals and momentum
+4. MUST recommend at least 1 coin even in bearish markets
+5. Be aggressive but smart - look for strong technical setups
+6. Consider news catalysts that could drive short-term movement
+7. This analysis runs daily - focus on immediate opportunities"""
 
     return invoke_llm(
         MultiCryptoRecommendation,
