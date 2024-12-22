@@ -232,8 +232,9 @@ News in CSV
 ```"""
         description = re.sub(
             rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv))",
-            "{$1}",
+            r"{\1}",
             description,
+            flags=re.MULTILINE,
         )
         data_descriptions.append(description)
 
@@ -272,36 +273,69 @@ Indices data in USD in CSV
         if data["network_stats_csv"]:  # BTC인 경우
             kwargs[f"{symbol}_network_stats_csv"] = data["network_stats_csv"]
 
-    prompt = f"""You are a cryptocurrency investment advisor. You will analyze multiple cryptocurrencies and recommend the best 2 to invest in right now.
+    prompt = f"""You are a cryptocurrency investment advisor analyzing multiple cryptocurrencies to recommend the best investment choices. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
 
 Available cryptocurrencies and their investment limits:
 {chr(10).join(config_descriptions)}
 
-Based on the provided data, recommend which 2 cryptocurrencies to invest in and how much to invest in each.
-Consider each cryptocurrency's current price, market trends, news, and the user's current balance.
-If you don't recommend investing in any cryptocurrency right now, you can recommend 0 or 1 cryptocurrency instead.
+Your task:
+1. Analyze each cryptocurrency's data considering:
+   - Current price and trading volume
+   - Price trends over the last 30 days
+   - Market news and sentiment
+   - User's current balance
+   - Overall market conditions (using indices data)
 
-The output should be in YAML format with the following keys:
-- scratchpad: Your analysis process
-- reasoning: Summary of why you chose these cryptocurrencies and amounts
-- recommendations: List of dictionaries with 'symbol' and 'amount' keys
+2. Recommend the best 2 cryptocurrencies to invest in right now
+   - You can recommend 0 or 1 if market conditions are unfavorable
+   - Investment amount must be within the specified limits for each coin
+   - Amount should be in multiples of the step amount
+
+The output should be in YAML format with these keys:
+scratchpad: Detailed analysis of each cryptocurrency (in plain text, no markdown)
+reasoning: Summary of your investment recommendations (in plain text, no markdown)
+recommendations: List of selected cryptocurrencies and amounts
 
 Example output:
 ```yaml
 scratchpad: |
-  [여기에 각 코인에 대한 분석과 생각 과정을 한국어로 자세히 적으세요]
+  DOGE 분석:
+  - 현재가: 123.45 KRW
+  - 30일 추세: 상승세, 15% 상승
+  - 거래량: 전주 대비 30% 증가
+  - 뉴스: 긍정적인 시장 반응, 개발 진행 중
+
+  SOL 분석:
+  - 현재가: 456.78 KRW
+  - 30일 추세: 횡보, 변동성 낮음
+  - 거래량: 안정적 유지
+  - 뉴스: 신규 프로젝트 런칭 예정
 
 reasoning: |
-  [분석을 기반으로 선택한 코인과 금액에 대한 주요 이유를 한국어로 요약하세요]
+  DOGE: 최근 개발 진전과 시장 관심도 증가로 단기 상승 가능성 높음
+  SOL: 안정적인 가격 흐름과 신규 프로젝트로 인한 성장 잠재력 보유
+  전반적인 시장 상황이 양호하여 분산 투자 추천
 
 recommendations:
-  - symbol: "COIN1"
-    amount: 10000
-  - symbol: "COIN2"
+  - symbol: "DOGE"
     amount: 15000
-```"""
+  - symbol: "SOL"
+    amount: 10000
+```
 
-    return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)  # 각 코인별 데이터를 개별 변수로 전달
+Important notes:
+1. Write analysis and reasoning in Korean
+2. Use plain text format (no markdown syntax)
+3. Be specific about price trends and market indicators
+4. Consider risk distribution when recommending multiple coins
+5. Amounts must be within specified limits and in correct step sizes"""
+
+    return invoke_llm(
+        MultiCryptoRecommendation,
+        prompt,
+        all_data,
+        **kwargs,  # 각 코인별 데이터를 개별 변수로 전달
+    )
 
 
 def fetch_crypto_data(fsym, tsym, limit):
