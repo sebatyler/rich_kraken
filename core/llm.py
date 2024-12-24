@@ -17,10 +17,12 @@ chat_anthropic = ChatAnthropic(
 )
 
 chat_gemini = ChatGoogleGenerativeAI(
-    temperature=0,
+    temperature=0.7,
+    top_p=0.95,
+    top_k=40,
     model="gemini-exp-1206",
     google_api_key=os.getenv("GEMINI_API_KEY"),
-    timeout=30,
+    timeout=90,
     max_retries=0,
 )
 

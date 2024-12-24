@@ -252,54 +252,75 @@ Your task:
    - Trading volume spikes and trends
    - Recent news impact and market sentiment
    - Technical indicators and price patterns
-   - Potential catalysts for price movement
+   - Risk level and market volatility
+   - Current portfolio exposure
 
 2. Recommend 1-2 cryptocurrencies with the highest potential for short-term gains
    - MUST recommend at least 1 cryptocurrency regardless of market conditions
    - Focus on coins showing strong momentum or potential reversal signals
-   - Look for opportunities in both upward and downward trends
-   - Investment amount must be within specified limits for each coin
-   - Amount should be in multiples of the step amount
+   - Investment amount should reflect both opportunity and risk:
+     * Use higher amounts (near max) for strong setups with lower risk
+     * Use medium amounts for good setups with moderate risk
+     * Use lower amounts (near min) for higher risk opportunities
+   - Amount must be within specified limits and in step size multiples
+   - Consider current holdings when determining position size
 
-The output should be in YAML format with these keys:
-scratchpad: Detailed analysis of each cryptocurrency (in plain text, no markdown)
-reasoning: Summary of your investment recommendations (in plain text, no markdown)
-recommendations: List of selected cryptocurrencies and amounts
+The output MUST strictly follow this YAML format:
+```yaml
+scratchpad: |
+  [Write detailed analysis here in plain text, no markdown or special characters]
+
+reasoning: |
+  [Write summary and reasoning here in plain text, no markdown or special characters]
+
+recommendations:
+  - symbol: "SYMBOL1"
+    amount: NUMBER1
+  - symbol: "SYMBOL2"
+    amount: NUMBER2
+```
 
 Example output:
 ```yaml
 scratchpad: |
   DOGE 분석:
-  - 현재가: 123.45 KRW (전일대비 -5%)
-  - 거래량: 최근 4시간 동안 200% 급증
-  - 모멘텀: RSI 과매도 구간, 반등 가능성
-  - 뉴스: 새로운 개발 소식, 커뮤니티 활성화
+  현재가: 123.45 KRW (전일대비 -5%)
+  거래량: 최근 4시간 동안 200% 급증
+  모멘텀: RSI 과매도 구간, 반등 가능성
+  리스크: 변동성 높음, 뉴스 영향도 큼
+  투자의견: 반등 가능성 높으나 리스크도 큼 - 중간 수준 투자 권장
 
   SOL 분석:
-  - 현재가: 456.78 KRW (전일대비 +8%)
-  - 거래량: 꾸준한 상승세, 전주 대비 80% 증가
-  - 모멘텀: 상승 추세 지속 중, MACD 상향 돌파
-  - 뉴스: DeFi 프로젝트 런칭 임박
+  현재가: 456.78 KRW (전일대비 +8%)
+  거래량: 꾸준한 상승세, 전주 대비 80% 증가
+  모멘텀: 상승 추세 지속 중, MACD 상향 돌파
+  리스크: 안정적 상승세, 기술적 지표 양호
+  투자의견: 강한 상승 모멘텀과 낮은 리스크 - 적극적 투자 권장
 
 reasoning: |
-  DOGE: 과매도 상태에서 거래량 급증은 강력한 반등 신호. 커뮤니티 활동 증가로 단기 상승 가능성 높음
-  SOL: 강한 상승 모멘텀과 함께 실질적인 개발 진전. 현재 추세가 이어질 것으로 예상
+  DOGE: 과매도 상태에서 반등 기회 있으나 변동성 위험 고려하여 중간 수준 투자 제안
+  SOL: 안정적인 상승세와 기술적 지표가 양호하여 적극적 투자 권장
 
 recommendations:
   - symbol: "DOGE"
-    amount: 20000
-  - symbol: "SOL"
     amount: 10000
+  - symbol: "SOL"
+    amount: 25000
 ```
 
-Important notes:
+Critical format rules:
+1. scratchpad and reasoning must be plain text with no markdown or special characters
+2. recommendations must be a list of dictionaries with exact keys: 'symbol' and 'amount'
+3. symbol must be a string in quotes, amount must be a number without quotes
+4. Keep the exact YAML indentation as shown
+5. Do not add any extra fields or formatting
+
+Remember:
 1. Write analysis and reasoning in Korean
-2. Use plain text format (no markdown syntax)
-3. Focus on short-term trading signals and momentum
-4. MUST recommend at least 1 coin even in bearish markets
-5. Be aggressive but smart - look for strong technical setups
-6. Consider news catalysts that could drive short-term movement
-7. This analysis runs daily - focus on immediate opportunities"""
+2. Balance risk and reward when determining amounts
+3. MUST recommend at least 1 coin even in bearish markets
+4. Consider both technical and fundamental factors
+5. This analysis runs daily - focus on immediate opportunities"""
 
     return invoke_llm(
         MultiCryptoRecommendation,
