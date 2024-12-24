@@ -7,8 +7,14 @@ import uuid
 
 import requests
 
-ACCESS_TOKEN = os.getenv("COINONE_ACCESS_TOKEN")
-SECRET_KEY = bytes(os.getenv("COINONE_SECRET_KEY"), "utf-8")
+ACCESS_TOKEN = None
+SECRET_KEY = None
+
+
+def init(second=False):
+    global ACCESS_TOKEN, SECRET_KEY
+    ACCESS_TOKEN = os.getenv("COINONE_ACCESS_TOKEN_2ND" if second else "COINONE_ACCESS_TOKEN")
+    SECRET_KEY = bytes(os.getenv("COINONE_SECRET_KEY_2ND" if second else "COINONE_SECRET_KEY"), "utf-8")
 
 
 def get_encoded_payload(payload):
@@ -41,11 +47,9 @@ def get_response(action, method="post", payload=None, public=False):
 
 
 def get_balances():
-    from kraken.cron import CRYPTO_CONFIGS
-
     data = get_response(
-        action="/v2.1/account/balance",
-        payload={"access_token": ACCESS_TOKEN, "currencies": ["KRW", *CRYPTO_CONFIGS.keys()]},
+        action="/v2.1/account/balance/all",
+        payload={"access_token": ACCESS_TOKEN},
     )
     return {balance["currency"]: balance for balance in data["balances"]}
 

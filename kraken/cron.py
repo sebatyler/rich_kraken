@@ -26,6 +26,7 @@ from django.db.models import Min
 from django.db.models import When
 from django.utils import timezone
 
+from core import coinone
 from core.coinone import buy_ticker
 from core.coinone import get_balances
 from core.coinone import get_ticker
@@ -46,7 +47,6 @@ if not settings.DEBUG:
 
 
 class CryptoConfig(BaseModel):
-    enabled: bool = Field(default=True, description="Whether this cryptocurrency is enabled for trading")
     min_amount: int = Field(default=5_000, description="Minimum amount in KRW to invest")
     max_amount: int = Field(default=30_000, description="Maximum amount in KRW to invest")
     step_amount: int = Field(default=5_000, description="Step amount in KRW for investment increments")
@@ -76,8 +76,9 @@ class CryptoConfig(BaseModel):
 
 
 CRYPTO_CONFIGS = {
-    "BTC": CryptoConfig(enabled=False),
-    "ETH": CryptoConfig(enabled=False),
+    "BTC": CryptoConfig(),
+    "ETH": CryptoConfig(),
+    "XRP": CryptoConfig(),
     "DOGE": CryptoConfig(),
     "SOL": CryptoConfig(),
     "DOT": CryptoConfig(),
@@ -101,8 +102,9 @@ class MultiCryptoRecommendation(BaseStrippedModel):
     recommendations: list[dict] = Field(..., description="List of recommended cryptocurrencies and amounts")
 
 
-def send_message(text, **kwargs):
-    bot.sendMessage(chat_id=environ["TELEGRAM_BOT_CHANNEL_ID"], text=text, **kwargs)
+def send_message(text, second=False, **kwargs):
+    chat_id = os.getenv("TELEGRAM_BOT_CHANNEL_ID_2ND" if second else "TELEGRAM_BOT_CHANNEL_ID")
+    bot.sendMessage(chat_id=chat_id, text=text, **kwargs)
 
 
 def fetch_coinmarketcap_data(path, params=None):
@@ -127,16 +129,12 @@ def collect_crypto_data(symbol: str, start_date: str):
         params={"symbol": symbol, "convert": "KRW"},
     )[symbol][0]
 
-    prev_balances = get_balances()
-    crypto_balance = prev_balances.get(symbol) or {}
-
     input_data = dict(
         ticker,
         circulating_supply=crypto_data["circulating_supply"],
         max_supply=crypto_data["max_supply"],
         total_supply=crypto_data["total_supply"],
         **crypto_data["quote"]["KRW"],
-        my_crypto_balance=crypto_balance,
         current_price=crypto_price,
     )
 
@@ -248,22 +246,20 @@ Available cryptocurrencies and their investment limits:
 
 Your task:
 1. Analyze each cryptocurrency's data considering:
-   - Short-term price movements and momentum
-   - Trading volume spikes and trends
+   - Current price and trading volume
+   - Price trends over the last 30 days
    - Recent news impact and market sentiment
-   - Technical indicators and price patterns
+   - Technical indicators and patterns
    - Risk level and market volatility
-   - Current portfolio exposure
 
-2. Recommend 1-2 cryptocurrencies with the highest potential for short-term gains
-   - MUST recommend at least 1 cryptocurrency regardless of market conditions
+2. Recommend 1-2 cryptocurrencies with the highest potential for gains
+   - MUST recommend at least 1 cryptocurrency to buy
    - Focus on coins showing strong momentum or potential reversal signals
    - Investment amount should reflect both opportunity and risk:
      * Use higher amounts (near max) for strong setups with lower risk
      * Use medium amounts for good setups with moderate risk
      * Use lower amounts (near min) for higher risk opportunities
    - Amount must be within specified limits and in step size multiples
-   - Consider current holdings when determining position size
 
 The output MUST strictly follow this YAML format:
 ```yaml
@@ -287,19 +283,19 @@ scratchpad: |
   현재가: 123.45 KRW (전일대비 -5%)
   거래량: 최근 4시간 동안 200% 급증
   모멘텀: RSI 과매도 구간, 반등 가능성
-  리스크: 변동성 높음, 뉴스 영향도 큼
-  투자의견: 반등 가능성 높으나 리스크도 큼 - 중간 수준 투자 권장
+  리스크: 변동성 높음, 단기 상승 여력 있음
+  투자의견: 반등 가능성 높으나 리스크 고려하여 중간 수준 투자
 
   SOL 분석:
-  현재가: 456.78 KRW (전일대비 +8%)
+  현재가: 456.78 KRW (전일대비 +3%)
   거래량: 꾸준한 상승세, 전주 대비 80% 증가
   모멘텀: 상승 추세 지속 중, MACD 상향 돌파
   리스크: 안정적 상승세, 기술적 지표 양호
-  투자의견: 강한 상승 모멘텀과 낮은 리스크 - 적극적 투자 권장
+  투자의견: 강한 상승 모멘텀과 낮은 리스크로 적극적 투자 권장
 
 reasoning: |
-  DOGE: 과매도 상태에서 반등 기회 있으나 변동성 위험 고려하여 중간 수준 투자 제안
-  SOL: 안정적인 상승세와 기술적 지표가 양호하여 적극적 투자 권장
+  DOGE: 과매도 상태에서 거래량 급증하며 반등 신호. 변동성 위험 고려하여 중간 수준 투자
+  SOL: 안정적인 상승세와 기술적 지표 양호. 상승 모멘텀 강화로 적극적 투자 권장
 
 recommendations:
   - symbol: "DOGE"
@@ -318,9 +314,9 @@ Critical format rules:
 Remember:
 1. Write analysis and reasoning in Korean
 2. Balance risk and reward when determining amounts
-3. MUST recommend at least 1 coin even in bearish markets
+3. MUST recommend at least 1 coin to buy
 4. Consider both technical and fundamental factors
-5. This analysis runs daily - focus on immediate opportunities"""
+5. This analysis runs daily - focus on opportunities"""
 
     return invoke_llm(
         MultiCryptoRecommendation,
@@ -367,71 +363,90 @@ def buy_crypto():
     indices_data = yf.download(indices, start=start_date)
     indices_data_csv = indices_data["Close"].to_csv()
 
-    # 활성화된 모든 코인의 데이터 수집
-    crypto_data_list = []
-    for symbol, config in CRYPTO_CONFIGS.items():
-        if not config.enabled:
-            continue
+    # 모든 코인의 데이터 수집
+    crypto_data_dict = {}
+    for symbol in CRYPTO_CONFIGS.keys():
         try:
             crypto_data = collect_crypto_data(symbol, start_date)
-            crypto_data_list.append(crypto_data)
+            crypto_data_dict[symbol] = crypto_data
         except Exception as e:
             logging.error(f"Failed to collect data for {symbol}: {e}")
             continue
 
-    # LLM에게 추천 받기
-    result, exc = [None] * 2
-    for _ in range(3):
-        try:
-            result = get_multi_recommendation(crypto_data_list, indices_data_csv)
-            break
-        except Exception as e:
-            logging.warning(e)
-            exc = e
+    target_coins_list = [
+        ("DOGE", "SOL", "DOT", "FET", "WLD", "STRK", "BLAST", "MOVE"),
+        ("BTC", "ETH", "XRP", "DOGE", "SOL", "WLD", "DOT"),
+    ]
 
-    if not result and exc:
-        raise exc
+    for i in range(2):
+        is_second = i > 0
+        target_coins = target_coins_list[i]
 
-    # 분석 결과 전송
-    send_message(
-        f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
-        parse_mode=telegram.ParseMode.MARKDOWN_V2,
-    )
+        # initialize coinone
+        coinone.init(second=is_second)
 
-    # 추천받은 코인 구매
-    for recommendation in result.recommendations:
-        symbol = recommendation["symbol"]
-        amount = recommendation["amount"]
+        # 잔고 조회해서 input_data에 추가
+        prev_balances = get_balances()
+        target_crypto_data = {}
+        for symbol, data in crypto_data_dict.items():
+            if symbol in target_coins:
+                data["input_data"]["my_crypto_balance"] = prev_balances.get(symbol, {})
+                target_crypto_data[symbol] = data
 
-        if amount == 0:
-            continue
+        # LLM에게 추천 받기
+        result, exc = [None] * 2
+        for _ in range(3):
+            try:
+                result = get_multi_recommendation(list(target_crypto_data.values()), indices_data_csv)
+                break
+            except Exception as e:
+                logging.warning(e)
+                exc = e
 
-        crypto_data = next(data for data in crypto_data_list if data["symbol"] == symbol)
-        crypto_price = crypto_data["input_data"]["current_price"]
-        crypto_balance = crypto_data["input_data"]["my_crypto_balance"]
+        if not result and exc:
+            raise exc
 
-        # buy crypto
-        logging.info(f"{symbol} {crypto_price=}, {amount=}")
+        # 분석 결과 전송
+        send_message(
+            f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
+            parse_mode=telegram.ParseMode.MARKDOWN_V2,
+            second=is_second,
+        )
 
-        if not settings.DEBUG:
-            r = buy_ticker(symbol, amount)
-            logging.info(f"buy_ticker: {r}")
+        # 추천받은 코인 구매
+        for recommendation in result.recommendations:
+            symbol = recommendation["symbol"]
+            amount = recommendation["amount"]
 
-        # current balance and value after order
-        balances = get_balances()
-        crypto_amount = float(balances[symbol]["available"])
-        crypto_value = crypto_amount * crypto_price
-        krw_amount = float(balances["KRW"]["available"])
-        bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
+            if amount == 0:
+                continue
 
-        price_msg = "{:,.0f}".format(crypto_price)
-        message_lines = [
-            f"Buy: {bought_crypto:,.8f} {symbol} ({amount:,} KRW)",
-            f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
-            f"{symbol} price: {price_msg}KRW",
-        ]
+            crypto_data = target_crypto_data[symbol]
+            crypto_price = crypto_data["input_data"]["current_price"]
+            crypto_balance = crypto_data["input_data"]["my_crypto_balance"]
 
-        send_message("\n".join(message_lines))
+            # buy crypto
+            logging.info(f"{symbol} {crypto_price=}, {amount=}")
+
+            if not settings.DEBUG:
+                r = buy_ticker(symbol, amount)
+                logging.info(f"buy_ticker: {r}")
+
+            # current balance and value after order
+            balances = get_balances()
+            crypto_amount = float(balances[symbol]["available"])
+            crypto_value = crypto_amount * crypto_price
+            krw_amount = float(balances["KRW"]["available"])
+            bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
+
+            price_msg = "{:,.0f}".format(crypto_price)
+            message_lines = [
+                f"Buy: {bought_crypto:,.8f} {symbol} ({amount:,} KRW)",
+                f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
+                f"{symbol} price: {price_msg}KRW",
+            ]
+
+            send_message("\n".join(message_lines), second=is_second)
 
 
 # CoinMarketCap 메인 페이지 URL
