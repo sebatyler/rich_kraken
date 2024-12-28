@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from pathlib import Path
 
+import dj_database_url
 import dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,7 +40,6 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
-    "django_s3_sqlite",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -91,23 +91,29 @@ WSGI_APPLICATION = "rich_trader.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-if os.getenv("USE_S3_SQLITE", "0") == "1":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django_s3_sqlite",
-            "NAME": "rich_trader.db",
-            "BUCKET": "sebatyler-dev",
-        },
-    }
+DATABASE_URL = os.getenv("DATABASE_URL")
+USE_DB_URL = bool(ENV != "test" and os.getenv("USE_DB_URL") == "1" and DATABASE_URL)
+
+if USE_DB_URL:
+    default_db = dj_database_url.parse(DATABASE_URL)
+
+    # PostgreSQL인 경우 connection pooling 설정 추가
+    if default_db["ENGINE"] == "django.db.backends.postgresql":
+        default_db["OPTIONS"] = default_db.get("OPTIONS", {})
+        default_db["OPTIONS"]["pool"] = {
+            "min_size": 4,
+            "max_size": 20,
+            "timeout": 10,
+        }
 else:
     tmp_dir = BASE_DIR / "tmp"
     os.makedirs(tmp_dir, exist_ok=True)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": tmp_dir / "db.sqlite3",
-        }
+    default_db = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": tmp_dir / "db.sqlite3",
     }
+
+DATABASES = {"default": default_db}
 print({k: v for k, v in DATABASES["default"].items() if k != "PASSWORD"})
 
 
