@@ -8,8 +8,9 @@ from .models import User
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = ("id", "email", "username", "is_staff", "firebase_uid", "created", "modified")
-    list_filter = ("is_staff", "is_superuser", "is_active", "groups")
+    list_filter = ("is_active", "is_staff", "is_superuser", "groups")
     search_fields = ("username", "email", "firebase_uid")
+    list_display_links = ("id", "email")
 
     # 사용자 추가 비활성화
     add_form = None
