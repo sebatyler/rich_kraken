@@ -35,17 +35,18 @@ RUN --mount=type=cache,target=/venv_cache,id=${PACKAGE_FILE}.rich_trader.deploy 
 ENV AWS_DEFAULT_REGION=ap-northeast-2
 RUN --mount=type=secret,id=aws_access_key_id \
     --mount=type=secret,id=aws_secret_access_key \
-    aws configure set aws_access_key_id $(cat /run/secrets/aws_access_key_id) && \
-    aws configure set aws_secret_access_key $(cat /run/secrets/aws_secret_access_key) && \
-    aws configure set region ${AWS_DEFAULT_REGION}
+    aws configure --profile sebatyler set aws_access_key_id $(cat /run/secrets/aws_access_key_id) && \
+    aws configure --profile sebatyler set aws_secret_access_key $(cat /run/secrets/aws_secret_access_key) && \
+    aws configure --profile sebatyler set region ${AWS_DEFAULT_REGION}
 
 COPY ./ ./
 
-# load secrets and save to .env
-RUN aws s3 cp s3://sebatyler-dev/rich_trader/.env.${TARGET} .env
+# download files
+RUN bash download.sh && mv -v .env.${TARGET} .env && ls -l credentials/
 
 # Collect static files
-RUN DJANGO_SETTINGS_MODULE=rich_trader.settings.${TARGET} USE_DB_URL=0 python manage.py collectstatic --noinput
+RUN AWS_PROFILE=sebatyler DJANGO_SETTINGS_MODULE=rich_trader.settings.${TARGET} USE_DB_URL=0 \
+    python manage.py collectstatic --noinput
 
 # Grab the zappa handler.py and put it in the working directory
 RUN ZAPPA_HANDLER_PATH=$(python -c "from zappa import handler; print (handler.__file__)") \

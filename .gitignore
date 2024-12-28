@@ -286,3 +286,5 @@ zappa_settings.json
 .env.*
 
 credentials/
+
+tmp/
