@@ -15,11 +15,15 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.urls import include
 from django.urls import path
 
+from accounts.views import admin_login
 from rich.views import IndexView
 
 urlpatterns = [
+    path("_a/login/", admin_login, name="admin_login"),
     path("_a/", admin.site.urls),
     path("", IndexView.as_view()),
+    path("accounts/", include("accounts.urls")),
 ]

@@ -284,3 +284,5 @@ zappa_settings.py
 zappa_settings.json
 
 .env.*
+
+credentials/

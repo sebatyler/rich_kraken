@@ -47,6 +47,8 @@ botocore==1.34.97
     #   s3transfer
 build==1.0.3
     # via pip-tools
+cachecontrol==0.14.1
+    # via firebase-admin
 cachetools==4.2.2
     # via
     #   google-auth
@@ -72,7 +74,9 @@ click==8.1.7
     #   kappa
     #   pip-tools
 cryptography==42.0.5
-    # via paramiko
+    # via
+    #   paramiko
+    #   pyjwt
 decorator==5.1.1
     # via
     #   fabric
@@ -109,6 +113,8 @@ fabric==3.2.2
     # via -r requirements.in
 filetype==1.2.0
     # via langchain-google-genai
+firebase-admin==6.6.0
+    # via -r requirements.in
 frozendict==2.4.4
     # via yfinance
 frozenlist==1.4.1
@@ -119,22 +125,45 @@ google-ai-generativelanguage==0.6.10
     # via google-generativeai
 google-api-core[grpc]==2.24.0
     # via
+    #   firebase-admin
     #   google-ai-generativelanguage
     #   google-api-python-client
+    #   google-cloud-core
+    #   google-cloud-firestore
+    #   google-cloud-storage
     #   google-generativeai
 google-api-python-client==2.156.0
-    # via google-generativeai
+    # via
+    #   firebase-admin
+    #   google-generativeai
 google-auth==2.37.0
     # via
     #   google-ai-generativelanguage
     #   google-api-core
     #   google-api-python-client
     #   google-auth-httplib2
+    #   google-cloud-core
+    #   google-cloud-firestore
+    #   google-cloud-storage
     #   google-generativeai
 google-auth-httplib2==0.2.0
     # via google-api-python-client
+google-cloud-core==2.4.1
+    # via
+    #   google-cloud-firestore
+    #   google-cloud-storage
+google-cloud-firestore==2.19.0
+    # via firebase-admin
+google-cloud-storage==2.19.0
+    # via firebase-admin
+google-crc32c==1.6.0
+    # via
+    #   google-cloud-storage
+    #   google-resumable-media
 google-generativeai==0.8.3
     # via langchain-google-genai
+google-resumable-media==2.7.2
+    # via google-cloud-storage
 googleapis-common-protos==1.66.0
     # via
     #   google-api-core
@@ -218,6 +247,8 @@ matplotlib-inline==0.1.7
     # via ipython
 more-itertools==10.2.0
     # via nasdaq-data-link
+msgpack==1.1.0
+    # via cachecontrol
 multidict==6.0.5
     # via
     #   aiohttp
@@ -264,10 +295,12 @@ proto-plus==1.25.0
     # via
     #   google-ai-generativelanguage
     #   google-api-core
+    #   google-cloud-firestore
 protobuf==5.29.2
     # via
     #   google-ai-generativelanguage
     #   google-api-core
+    #   google-cloud-firestore
     #   google-generativeai
     #   googleapis-common-protos
     #   grpcio-status
@@ -303,8 +336,10 @@ pydantic-core==2.23.4
     # via pydantic
 pygments==2.18.0
     # via ipython
-pyjwt==2.10.1
-    # via -r requirements.in
+pyjwt[crypto]==2.10.1
+    # via
+    #   -r requirements.in
+    #   firebase-admin
 pynacl==1.5.0
     # via paramiko
 pyparsing==3.2.0
@@ -338,7 +373,9 @@ pyyaml==6.0.1
     #   zappa
 requests==2.31.0
     # via
+    #   cachecontrol
     #   google-api-core
+    #   google-cloud-storage
     #   langchain
     #   langsmith
     #   nasdaq-data-link

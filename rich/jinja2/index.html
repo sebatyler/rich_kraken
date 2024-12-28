@@ -1,117 +1,43 @@
-<head>
-  <title>Rich Trader</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    .chart-container {
-      @apply w-full max-w-1024px mx-auto;
-    }
-  </style>
+{% extends "base.html" %}
 
-</head>
-
-<body>
-  <div class="chart-container">
-    <canvas id="myChart"></canvas>
-  </div>
-  <div class="container m-auto">
-    {% for key, value in balance.items() %}
-    <div class="mb-4 ml-4">
-      <h2 class="text-l font-bold">{{key}}
-      </h2>
-      <ul class="text-sm list-disc ml-8">
-        {% for k, v in value.items() %}
-        <li><strong>{{k}}:</strong> {{v}}</li>
-        {% endfor %}
-      </ul>
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+  <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+    {% if request.user.is_authenticated %}
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center">
+          {% if request.user.profile_picture %}
+          <img src="{{ request.user.profile_picture }}" alt="Profile" class="h-12 w-12 rounded-full">
+          {% endif %}
+          <div class="ml-4">
+            <h2 class="text-xl font-semibold text-gray-900">
+              환영합니다!
+            </h2>
+            <p class="text-gray-500">
+              {{ request.user.email }}
+            </p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <form method="post" action="{{ url('accounts:logout') }}" class="inline">
+            {{ csrf_input }}
+            <button type="submit"
+              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+              로그아웃
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
-    {% endfor %}
+    {% else %}
+    <div class="text-center">
+      <h2 class="text-3xl font-bold text-gray-900 mb-8">
+        Rich Trader에 오신 것을 환영합니다
+      </h2>
+      {% include "components/google_login_button.html" %}
+    </div>
+    {% endif %}
   </div>
-  <script> // 뷰에서 전달된 JSON 문자열을 JavaScript 객체로 변환
-    var jsonData = JSON.parse({{ chart_data| safe}});
-
-    // dtime, euro, btc_euro, total_euro 데이터 추출
-    var labels = jsonData.map(function (item) {
-      return item.date;
-    });
-
-    var euroData = jsonData.map(function (item) {
-      return item.euro;
-    });
-
-    var btcPriceData = jsonData.map(function (item) {
-      return item.price;
-    });
-
-    var btcEuroData = jsonData.map(function (item) {
-      return item.btc_euro;
-    });
-
-    var totalEuroData = jsonData.map(function (item) {
-      return item.total_euro;
-    });
-
-    var ctx = document.getElementById("myChart").getContext("2d");
-    var myChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Euro Balance",
-            data: euroData,
-            borderColor: "blue",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "BTC Euro",
-            data: btcEuroData,
-            borderColor: "orange",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "Total Euro",
-            data: totalEuroData,
-            borderColor: "green",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "BTC Price",
-            data: btcPriceData,
-            borderColor: "red",
-            pointStyle: false,
-            yAxisID: "y1",
-          },
-        ],
-      },
-      options: {
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          x: {
-            stacked: true
-          },
-          y: {
-            type: "linear",
-            display: true,
-            position: "left",
-          },
-          y1: {
-            type: "linear",
-            display: true,
-            position: "right",
-            grid: {
-              drawOnChartArea: false
-            }
-          }
-        }
-      }
-    });
-  </script>
-</body>
+</div>
+{% endblock %}

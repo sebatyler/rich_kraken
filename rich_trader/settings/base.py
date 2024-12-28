@@ -16,6 +16,10 @@ from pathlib import Path
 import dj_database_url
 import dotenv
 
+from firebase_admin import credentials
+import firebase_admin
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -48,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_extensions",
     "rich",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -65,7 +70,9 @@ ROOT_URLCONF = "rich_trader.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.jinja2.Jinja2",
-        "DIRS": [],
+        "DIRS": [
+            BASE_DIR / "rich_trader" / "jinja2",
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "environment": "rich_trader.jinja2.environment",
@@ -158,3 +165,27 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "accounts.User"
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+
+# Firebase 설정 추가
+FIREBASE_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY"),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+    "appId": os.getenv("FIREBASE_APP_ID"),
+    "measurementId": os.getenv("FIREBASE_MEASUREMENT_ID"),
+}
+
+# firebase
+firebase_cert_path = BASE_DIR / "credentials/firebase_service_account.json"
+if ENV != "test":
+    if not firebase_cert_path.exists():
+        raise FileNotFoundError(f"Firebase service account file required: {firebase_cert_path}")
+
+    cred = credentials.Certificate(firebase_cert_path)
+    firebase_admin.initialize_app(cred)
