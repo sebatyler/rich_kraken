@@ -161,14 +161,14 @@ News in CSV
 ```csv
 {symbol}_crypto_news_csv
 ```"""
+        description = re.sub(
+            rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv))",
+            r"{\1}",
+            description,
+            flags=re.MULTILINE,
+        )
         data_descriptions.append(description)
 
-    description = re.sub(
-        rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv))",
-        r"{\1}",
-        description,
-        flags=re.MULTILINE,
-    )
     all_data = "\n\n".join(data_descriptions)
     all_data += """
 === Market Indices ===
