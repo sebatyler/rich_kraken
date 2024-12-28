@@ -1,117 +1,99 @@
-<head>
-  <title>Rich Trader</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    .chart-container {
-      @apply w-full max-w-1024px mx-auto;
-    }
-  </style>
+{% extends "base.html" %}
 
-</head>
-
-<body>
-  <div class="chart-container">
-    <canvas id="myChart"></canvas>
-  </div>
-  <div class="container m-auto">
-    {% for key, value in balance.items() %}
-    <div class="mb-4 ml-4">
-      <h2 class="text-l font-bold">{{key}}
-      </h2>
-      <ul class="text-sm list-disc ml-8">
-        {% for k, v in value.items() %}
-        <li><strong>{{k}}:</strong> {{v}}</li>
-        {% endfor %}
-      </ul>
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+  <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+    {% if request.user.is_authenticated %}
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center">
+          {% if request.user.profile_picture %}
+          <img src="{{ request.user.profile_picture }}" alt="Profile" class="h-12 w-12 rounded-full">
+          {% endif %}
+          <div class="ml-4">
+            <h2 class="text-xl font-semibold text-gray-900">
+              환영합니다!
+            </h2>
+            <p class="text-gray-500">
+              {{ request.user.email }}
+            </p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <form method="post" action="{{ url('accounts:logout') }}" class="inline">
+            {{ csrf_input }}
+            <button type="submit"
+              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+              로그아웃
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
-    {% endfor %}
+    {% else %}
+    <div class="text-center">
+      <h2 class="text-3xl font-bold text-gray-900 mb-8">
+        Rich Trader에 오신 것을 환영합니다
+      </h2>
+      <div id="loginResult" class="mb-4"></div>
+      <div class="inline-block">
+        <button type="button" id="googleLogin"
+          class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+          Google로 로그인
+        </button>
+      </div>
+    </div>
+    {% endif %}
   </div>
-  <script> // 뷰에서 전달된 JSON 문자열을 JavaScript 객체로 변환
-    var jsonData = JSON.parse({{ chart_data| safe}});
+</div>
 
-    // dtime, euro, btc_euro, total_euro 데이터 추출
-    var labels = jsonData.map(function (item) {
-      return item.date;
-    });
+{% if not request.user.is_authenticated %}
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-analytics.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-    var euroData = jsonData.map(function (item) {
-      return item.euro;
-    });
+  const firebaseConfig = {
+    apiKey: "{{ firebase_config.apiKey }}",
+    authDomain: "{{ firebase_config.authDomain }}",
+    projectId: "{{ firebase_config.projectId }}",
+    storageBucket: "{{ firebase_config.storageBucket }}",
+    messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+    appId: "{{ firebase_config.appId }}",
+    measurementId: "{{ firebase_config.measurementId }}"
+  };
 
-    var btcPriceData = jsonData.map(function (item) {
-      return item.price;
-    });
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const auth = getAuth(app);
 
-    var btcEuroData = jsonData.map(function (item) {
-      return item.btc_euro;
-    });
+  document.getElementById('googleLogin').addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      document.getElementById('loginResult').innerHTML = `
+        <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+          Google 로그인 진행 중...
+        </div>
+      `;
 
-    var totalEuroData = jsonData.map(function (item) {
-      return item.total_euro;
-    });
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
 
-    var ctx = document.getElementById("myChart").getContext("2d");
-    var myChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Euro Balance",
-            data: euroData,
-            borderColor: "blue",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "BTC Euro",
-            data: btcEuroData,
-            borderColor: "orange",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "Total Euro",
-            data: totalEuroData,
-            borderColor: "green",
-            pointStyle: false,
-            yAxisID: "y",
-          },
-          {
-            label: "BTC Price",
-            data: btcPriceData,
-            borderColor: "red",
-            pointStyle: false,
-            yAxisID: "y1",
-          },
-        ],
-      },
-      options: {
-        interaction: {
-          intersect: false,
-          mode: 'index',
-        },
-        scales: {
-          x: {
-            stacked: true
-          },
-          y: {
-            type: "linear",
-            display: true,
-            position: "left",
-          },
-          y1: {
-            type: "linear",
-            display: true,
-            position: "right",
-            grid: {
-              drawOnChartArea: false
-            }
-          }
-        }
-      }
-    });
-  </script>
-</body>
+      htmx.ajax('POST', '{{ url("accounts:verify_token") }}', {
+        target: '#loginResult',
+        swap: 'innerHTML',
+        values: { token }
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      document.getElementById('loginResult').innerHTML = `
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          로그인 중 오류가 발생했습니다.
+        </div>
+      `;
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

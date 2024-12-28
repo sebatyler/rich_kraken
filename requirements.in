@@ -33,3 +33,5 @@ yfinance==0.2.38
 pyjwt==2.10.1
 
 sentry-sdk[django]==2.1.1
+
+firebase-admin

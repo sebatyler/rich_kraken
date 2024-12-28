@@ -15,6 +15,7 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.urls import include
 from django.urls import path
 
 from rich.views import IndexView
@@ -22,4 +23,5 @@ from rich.views import IndexView
 urlpatterns = [
     path("_a/", admin.site.urls),
     path("", IndexView.as_view()),
+    path("accounts/", include("accounts.urls")),
 ]
