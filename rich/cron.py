@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import re
-from datetime import datetime
 from datetime import timedelta
 from os import environ
 
@@ -30,16 +29,12 @@ from core import coinone
 from core.coinone import buy_ticker
 from core.coinone import get_balances
 from core.coinone import get_ticker
-from core.db import ConnectionContextManager
 from core.llm import invoke_llm
-from kraken.models import Kraken
 
 from .models import CryptoListing
-from .models import Trade
 
 # https://t.me/RichSebaBot
 bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
-kraken = Kraken()
 
 # Set timezone cache location to /tmp if AWS lambda environment
 if not settings.DEBUG:
@@ -565,77 +560,3 @@ def select_coins_to_buy():
         text = "No coins met the criteria for buying\."
 
     send_message(text, parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-
-def insert_trade_history():
-    try:
-        trade = Trade.objects.earliest("trade_at")
-        end = trade.trade_at - timedelta(seconds=1)
-    except Trade.DoesNotExist:
-        end = timezone.now()
-
-    days = 365
-    start = end - timedelta(days=days)
-    trades = []
-
-    while True:
-        logging.info(f"{start=}, {end=}")
-        start_ts = start.timestamp()
-        df = kraken.get_trades(start=start_ts, end=end.timestamp())[0]
-
-        # row count
-        if df.shape[0] == 0:
-            break
-
-        end_ts = df["time"][-1] - 1
-        if end_ts <= start_ts:
-            break
-
-        end = datetime.fromtimestamp(end_ts)
-
-        for _, row in df.iterrows():
-            trades.append(
-                Trade(
-                    txid=row["txid"],
-                    pair=row["pair"],
-                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-                    order_type=row["type"],
-                    price=row["price"],
-                    cost=row["cost"],
-                    volume=row["vol"],
-                    fee=row["fee"],
-                    margin=row["margin"],
-                    misc=row["misc"],
-                    raw=row.to_dict(),
-                )
-            )
-
-    trades.sort(key=lambda x: x.trade_at)
-    Trade.objects.bulk_create(trades)
-
-
-def update_trade_history():
-    with ConnectionContextManager():
-        trade = Trade.objects.latest("trade_at")
-        start = trade.trade_at + timedelta(seconds=1)
-
-        df = kraken.get_trades(start=start.timestamp())[0]
-        trades = [
-            Trade(
-                txid=row["txid"],
-                pair=row["pair"],
-                trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-                order_type=row["type"],
-                price=row["price"],
-                cost=row["cost"],
-                volume=row["vol"],
-                fee=row["fee"],
-                margin=row["margin"],
-                misc=row["misc"],
-                raw=row.to_dict(),
-            )
-            for _, row in df.iterrows()
-        ]
-
-        trades.sort(key=lambda x: x.trade_at)
-        logging.info(f"update_trade_history: {Trade.objects.bulk_create(trades)}")

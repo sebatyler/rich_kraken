@@ -190,8 +190,6 @@ jsonpointer==2.4
     # via jsonpatch
 kappa==0.6.0
     # via zappa
-krakenex==2.2.1
-    # via pykrakenapi
 langchain==0.3.13
     # via -r requirements.in
 langchain-anthropic==0.3.1
@@ -243,7 +241,6 @@ packaging==23.2
 pandas==2.0.3
     # via
     #   nasdaq-data-link
-    #   pykrakenapi
     #   yfinance
 paramiko==3.4.0
     # via fabric
@@ -302,8 +299,6 @@ pygments==2.18.0
     # via ipython
 pyjwt==2.10.1
     # via -r requirements.in
-pykrakenapi==0.3.2
-    # via -r requirements.in
 pynacl==1.5.0
     # via paramiko
 pyparsing==3.2.0
@@ -338,7 +333,6 @@ pyyaml==6.0.1
 requests==2.31.0
     # via
     #   google-api-core
-    #   krakenex
     #   langchain
     #   langsmith
     #   nasdaq-data-link

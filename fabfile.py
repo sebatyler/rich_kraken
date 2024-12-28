@@ -8,7 +8,7 @@ from invoke import run as local
 
 dotenv.read_dotenv()
 
-PROJECT = "rich_kraken"
+PROJECT = "rich_trader"
 PROFILE = "sebatyler"
 
 IS_CI = environ.get("GITHUB_ACTIONS") == "true"
@@ -161,7 +161,7 @@ def _run_manage_command(command, with_zappa=None, add_noinput=True):
         key = "DJANGO_SETTINGS_MODULE"
         settings = environ.get(key)
 
-        environ[key] = f"rich_kraken.settings.{target}"
+        environ[key] = f"rich_trader.settings.{target}"
         local(f"python manage.py {args}", echo=True)
 
         if settings:
