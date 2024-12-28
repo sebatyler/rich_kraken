@@ -26,25 +26,26 @@ ARG TARGET=prod
 COPY ${PACKAGE_FILE} ./
 
 # Install packages with cache
-RUN --mount=type=cache,target=/venv_cache,id=${PACKAGE_FILE}.rich_kraken.deploy \
+RUN --mount=type=cache,target=/venv_cache,id=${PACKAGE_FILE}.rich_trader.deploy \
     cp -a /venv_cache/* ${FUNCTION_DIR}/venv_deploy/; \
     pip install uv && uv pip install --no-cache-dir -r ${PACKAGE_FILE} && zappa -v; \
     [ $USE_CACHE -eq 1 ] && cp -a ${FUNCTION_DIR}/venv_deploy/* /venv_cache/ || echo readonly cache
 
 # AWS confidential from arguments to run 'aws s3'
-ARG aws_access_key_id
-ENV AWS_ACCESS_KEY_ID=${aws_access_key_id}
-ARG aws_secret_access_key
-ENV AWS_SECRET_ACCESS_KEY=${aws_secret_access_key}
-ENV AWS_DEFAULT_REGION ap-northeast-2
+ENV AWS_DEFAULT_REGION=ap-northeast-2
+RUN --mount=type=secret,id=aws_access_key_id \
+    --mount=type=secret,id=aws_secret_access_key \
+    aws configure set aws_access_key_id $(cat /run/secrets/aws_access_key_id) && \
+    aws configure set aws_secret_access_key $(cat /run/secrets/aws_secret_access_key) && \
+    aws configure set region ${AWS_DEFAULT_REGION}
 
 COPY ./ ./
 
 # load secrets and save to .env
-RUN aws s3 cp s3://sebatyler-dev/rich_kraken/.env.${TARGET} .env
+RUN aws s3 cp s3://sebatyler-dev/rich_trader/.env.${TARGET} .env
 
 # Collect static files
-RUN DJANGO_SETTINGS_MODULE=rich_kraken.settings.${TARGET} python manage.py collectstatic --noinput
+RUN DJANGO_SETTINGS_MODULE=rich_trader.settings.${TARGET} USE_DB_URL=0 python manage.py collectstatic --noinput
 
 # Grab the zappa handler.py and put it in the working directory
 RUN ZAPPA_HANDLER_PATH=$(python -c "from zappa import handler; print (handler.__file__)") \

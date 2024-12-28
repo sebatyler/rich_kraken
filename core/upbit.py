@@ -20,8 +20,5 @@ def get_balances():
     headers = {
         "Authorization": authorization,
     }
-    print(payload)
-    print(headers)
-
     res = requests.get(f"{origin}/v1/accounts", headers=headers)
     return res.json()

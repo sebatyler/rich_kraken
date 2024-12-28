@@ -8,7 +8,7 @@ from invoke import run as local
 
 dotenv.read_dotenv()
 
-PROJECT = "rich_kraken"
+PROJECT = "rich_trader"
 PROFILE = "sebatyler"
 
 IS_CI = environ.get("GITHUB_ACTIONS") == "true"
@@ -68,8 +68,8 @@ def build(c, use_cache=True):
             f"--build-arg USE_CACHE={1 if use_cache else 0}",
             f"--build-arg PACKAGE_FILE={package_file}",
             f"--build-arg TARGET={target}",
-            f"--build-arg aws_access_key_id={access_key}",
-            f"--build-arg aws_secret_access_key={secret_key}",
+            f"--secret id=aws_access_key_id,env=AWS_ACCESS_KEY_ID",
+            f"--secret id=aws_secret_access_key,env=AWS_SECRET_ACCESS_KEY",
             f"-t {_get_docker_image()}:latest",
         ]
         if progress:
@@ -161,7 +161,7 @@ def _run_manage_command(command, with_zappa=None, add_noinput=True):
         key = "DJANGO_SETTINGS_MODULE"
         settings = environ.get(key)
 
-        environ[key] = f"rich_kraken.settings.{target}"
+        environ[key] = f"rich_trader.settings.{target}"
         local(f"python manage.py {args}", echo=True)
 
         if settings:

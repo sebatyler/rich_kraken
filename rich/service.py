@@ -1,15 +1,10 @@
 import json
 import logging
-import os
 import re
-from datetime import datetime
 from datetime import timedelta
-from os import environ
 
 import pandas as pd
-import requests
 import telegram
-import yfinance as yf
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import field_validator
@@ -27,23 +22,12 @@ from django.db.models import When
 from django.utils import timezone
 
 from core import coinone
-from core.coinone import buy_ticker
-from core.coinone import get_balances
-from core.coinone import get_ticker
-from core.db import ConnectionContextManager
+from core import crypto
+from core import utils
 from core.llm import invoke_llm
-from kraken.models import Kraken
+from core.telegram import send_message
 
 from .models import CryptoListing
-from .models import Trade
-
-# https://t.me/RichSebaBot
-bot = telegram.Bot(environ["TELEGRAM_BOT_TOKEN"])
-kraken = Kraken()
-
-# Set timezone cache location to /tmp if AWS lambda environment
-if not settings.DEBUG:
-    yf.set_tz_cache_location("/tmp/yf")
 
 
 class CryptoConfig(BaseModel):
@@ -75,6 +59,18 @@ class CryptoConfig(BaseModel):
         return v
 
 
+class BaseStrippedModel(BaseModel):
+    def __init__(self, *args, **kwargs):
+        kwargs = {k: v.strip() if isinstance(v, str) else v for k, v in kwargs.items()}
+        super().__init__(*args, **kwargs)
+
+
+class MultiCryptoRecommendation(BaseStrippedModel):
+    scratchpad: str = Field(..., description="The analysis scratchpad text")
+    reasoning: str = Field(..., description="The reasoning text")
+    recommendations: list[dict] = Field(..., description="List of recommended cryptocurrencies and amounts")
+
+
 CRYPTO_CONFIGS = {
     "BTC": CryptoConfig(),
     "ETH": CryptoConfig(),
@@ -90,44 +86,12 @@ CRYPTO_CONFIGS = {
 }
 
 
-class BaseStrippedModel(BaseModel):
-    def __init__(self, *args, **kwargs):
-        kwargs = {k: v.strip() if isinstance(v, str) else v for k, v in kwargs.items()}
-        super().__init__(*args, **kwargs)
-
-
-class MultiCryptoRecommendation(BaseStrippedModel):
-    scratchpad: str = Field(..., description="The analysis scratchpad text")
-    reasoning: str = Field(..., description="The reasoning text")
-    recommendations: list[dict] = Field(..., description="List of recommended cryptocurrencies and amounts")
-
-
-def send_message(text, second=False, **kwargs):
-    chat_id = os.getenv("TELEGRAM_BOT_CHANNEL_ID_2ND" if second else "TELEGRAM_BOT_CHANNEL_ID")
-    bot.sendMessage(chat_id=chat_id, text=text, **kwargs)
-
-
-def fetch_coinmarketcap_data(path, params=None):
-    headers = {
-        "Accepts": "application/json",
-        "X-CMC_PRO_API_KEY": os.getenv("COINMARKETCAP_API_KEY"),
-    }
-    url = "https://pro-api.coinmarketcap.com" + path
-
-    response = requests.get(url, headers=headers, params=params)
-    response.raise_for_status()
-
-    return response.json()["data"]
-
-
-def collect_crypto_data(symbol: str, start_date: str):
-    ticker = get_ticker(symbol)
+def collect_crypto_data(symbol: str, start_date: str, config):
+    """특정 암호화폐의 모든 관련 데이터를 수집합니다."""
+    ticker = coinone.get_ticker(symbol)
     crypto_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
 
-    crypto_data = fetch_coinmarketcap_data(
-        "/v2/cryptocurrency/quotes/latest",
-        params={"symbol": symbol, "convert": "KRW"},
-    )[symbol][0]
+    crypto_data = crypto.get_quotes(symbol)
 
     input_data = dict(
         ticker,
@@ -138,21 +102,21 @@ def collect_crypto_data(symbol: str, start_date: str):
         current_price=crypto_price,
     )
 
-    # crypto data in KRW
-    historical_data = fetch_crypto_data(symbol, "KRW", 30)
+    # 과거 데이터 수집
+    historical_data = crypto.get_historical_data(symbol, "KRW", 30)
     df = pd.DataFrame(historical_data)
     df = df.drop(columns=["conversionType", "conversionSymbol"])
     crypto_data_csv = df.to_csv(index=False)
 
-    # network stats (비트코인일 때만)
+    # 네트워크 데이터 (비트코인만)
     network_stats_csv = ""
     if symbol == "BTC":
-        network_stats = fetch_network_stats()
+        network_stats = crypto.get_network_stats()
         df = pd.DataFrame(network_stats, index=[0])
         network_stats_csv = df.to_csv(index=False)
 
-    # crypto news
-    crypto_news = fetch_news(start_date, symbol)
+    # 뉴스 데이터
+    crypto_news = crypto.fetch_news(start_date, symbol)
     df = pd.DataFrame(crypto_news)
     df = df[["source", "title", "description", "publishedAt", "content"]]
     df["source"] = df["source"].apply(lambda x: x["name"])
@@ -164,11 +128,12 @@ def collect_crypto_data(symbol: str, start_date: str):
         "crypto_data_csv": crypto_data_csv,
         "network_stats_csv": network_stats_csv,
         "crypto_news_csv": crypto_news_csv,
-        "config": CRYPTO_CONFIGS[symbol],
+        "config": config,
     }
 
 
 def get_multi_recommendation(crypto_data_list: list[dict], indices_csv: str) -> MultiCryptoRecommendation:
+    """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
     # 각 코인별 데이터를 하나의 문자열로 조합
     data_descriptions = []
     for data in crypto_data_list:
@@ -318,56 +283,23 @@ Remember:
 4. Consider both technical and fundamental factors
 5. This analysis runs daily - focus on opportunities"""
 
-    return invoke_llm(
-        MultiCryptoRecommendation,
-        prompt,
-        all_data,
-        **kwargs,  # 각 코인별 데이터를 개별 변수로 전달
-    )
-
-
-def fetch_crypto_data(fsym, tsym, limit):
-    url = f"https://min-api.cryptocompare.com/data/histoday"
-    parameters = {"fsym": fsym, "tsym": tsym, "limit": limit}
-    response = requests.get(url, params=parameters)
-    data = response.json()
-    return data["Data"]
-
-
-def fetch_news(from_date, query):
-    url = "https://newsapi.org/v2/everything"
-    parameters = {"q": query, "from": from_date, "pageSize": 20}
-    response = requests.get(
-        url,
-        params=parameters,
-        headers={"X-Api-Key": os.getenv("NEWS_API_KEY")},
-    )
-    data = response.json()
-    return data["articles"]
-
-
-def fetch_network_stats():
-    url = "https://api.blockchain.info/stats"
-    response = requests.get(url)
-    data = response.json()
-    return data
+    return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
 
 
 def buy_crypto():
+    """암호화폐 구매 프로세스를 실행합니다."""
     # 오늘 날짜와 한 달 전 날짜 설정
     end_date = timezone.localdate()
     start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # 유가, 다우존스, S&P 500, 나스닥
-    indices = ["CL=F", "^DJI", "^GSPC", "^IXIC"]
-    indices_data = yf.download(indices, start=start_date)
-    indices_data_csv = indices_data["Close"].to_csv()
+    # 시장 지표 데이터 가져오기
+    indices_data_csv = crypto.get_market_indices(start_date)
 
     # 모든 코인의 데이터 수집
     crypto_data_dict = {}
     for symbol in CRYPTO_CONFIGS.keys():
         try:
-            crypto_data = collect_crypto_data(symbol, start_date)
+            crypto_data = collect_crypto_data(symbol, start_date, CRYPTO_CONFIGS[symbol])
             crypto_data_dict[symbol] = crypto_data
         except Exception as e:
             logging.error(f"Failed to collect data for {symbol}: {e}")
@@ -386,7 +318,7 @@ def buy_crypto():
         coinone.init(second=is_second)
 
         # 잔고 조회해서 input_data에 추가
-        prev_balances = get_balances()
+        prev_balances = coinone.get_balances()
         target_crypto_data = {}
         for symbol, data in crypto_data_dict.items():
             if symbol in target_coins:
@@ -409,7 +341,7 @@ def buy_crypto():
         # 분석 결과 전송
         send_message(
             f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
-            parse_mode=telegram.ParseMode.MARKDOWN_V2,
+            is_markdown=True,
             second=is_second,
         )
 
@@ -429,11 +361,11 @@ def buy_crypto():
             logging.info(f"{symbol} {crypto_price=}, {amount=}")
 
             if not settings.DEBUG:
-                r = buy_ticker(symbol, amount)
+                r = coinone.buy_ticker(symbol, amount)
                 logging.info(f"buy_ticker: {r}")
 
             # current balance and value after order
-            balances = get_balances()
+            balances = coinone.get_balances()
             crypto_amount = float(balances[symbol]["available"])
             crypto_value = crypto_amount * crypto_price
             krw_amount = float(balances["KRW"]["available"])
@@ -449,30 +381,10 @@ def buy_crypto():
             send_message("\n".join(message_lines), second=is_second)
 
 
-# CoinMarketCap 메인 페이지 URL
-COINMARKETCAP_URL = "https://coinmarketcap.com/"
-
-# User-Agent 리스트
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) AppleWebKit/537.78.2 (KHTML, like Gecko) Version/7.0.6 Safari/537.78.2",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0",
-]
-
-
 def fetch_crypto_listings():
-    # https://coinmarketcap.com/api/documentation/v1/#operation/getV1CryptocurrencyListingsLatest
+    """CoinMarketCap에서 암호화폐 목록을 가져와 저장합니다."""
     min_market_cap = 1_000
-    params = {
-        "convert": "USD",
-        "cryptocurrency_type": "coins",
-        "market_cap_min": min_market_cap,  # "Minimum market capitalization in USD"
-        "limit": 1000,
-    }
-    data = fetch_coinmarketcap_data("/v1/cryptocurrency/listings/latest", params)
+    data = crypto.get_latest_listings(min_market_cap=min_market_cap)
 
     listing = []
     for coin in data:
@@ -499,25 +411,12 @@ def fetch_crypto_listings():
                 )
             )
 
-    with ConnectionContextManager():
-        result = CryptoListing.objects.bulk_create(listing)
-        logging.info(f"fetch_crypto_listings: {len(result)}")
-
-
-def pretty_currency(value):
-    if value > 1_000_000_000_000:
-        value = f"{value/1_000_000_000_000:,.2f}T"
-    elif value > 1_000_000_000:
-        value = f"{value/1_000_000_000:,.2f}B"
-    elif value > 1_000_000:
-        value = f"{value/1_000_000:,.2f}M"
-    elif value > 1_000:
-        value = f"{value/1_000:,.2f}K"
-
-    return value
+    result = CryptoListing.objects.bulk_create(listing)
+    logging.info(f"fetch_crypto_listings: {len(result)}")
 
 
 def select_coins_to_buy():
+    """구매할 코인을 선택하고 결과를 알립니다."""
     today = timezone.now().date()
     start_date = today - timedelta(days=4)
 
@@ -555,7 +454,7 @@ def select_coins_to_buy():
         text_list.append(f"Price 5 days ago: ${coin['first_price']:.4f}")
         text_list.append(f"Change over 5 days: {coin['change_5d']:.2f}%")
 
-        market_cap = pretty_currency(coin["avg_market_cap"])
+        market_cap = utils.format_currency(coin["avg_market_cap"])
         text_list.extend([f"Average Market Cap: {market_cap}", ""])
 
     if text_list:
@@ -564,78 +463,4 @@ def select_coins_to_buy():
     else:
         text = "No coins met the criteria for buying\."
 
-    send_message(text, parse_mode=telegram.ParseMode.MARKDOWN_V2)
-
-
-def insert_trade_history():
-    try:
-        trade = Trade.objects.earliest("trade_at")
-        end = trade.trade_at - timedelta(seconds=1)
-    except Trade.DoesNotExist:
-        end = timezone.now()
-
-    days = 365
-    start = end - timedelta(days=days)
-    trades = []
-
-    while True:
-        logging.info(f"{start=}, {end=}")
-        start_ts = start.timestamp()
-        df = kraken.get_trades(start=start_ts, end=end.timestamp())[0]
-
-        # row count
-        if df.shape[0] == 0:
-            break
-
-        end_ts = df["time"][-1] - 1
-        if end_ts <= start_ts:
-            break
-
-        end = datetime.fromtimestamp(end_ts)
-
-        for _, row in df.iterrows():
-            trades.append(
-                Trade(
-                    txid=row["txid"],
-                    pair=row["pair"],
-                    trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-                    order_type=row["type"],
-                    price=row["price"],
-                    cost=row["cost"],
-                    volume=row["vol"],
-                    fee=row["fee"],
-                    margin=row["margin"],
-                    misc=row["misc"],
-                    raw=row.to_dict(),
-                )
-            )
-
-    trades.sort(key=lambda x: x.trade_at)
-    Trade.objects.bulk_create(trades)
-
-
-def update_trade_history():
-    with ConnectionContextManager():
-        trade = Trade.objects.latest("trade_at")
-        start = trade.trade_at + timedelta(seconds=1)
-
-        df = kraken.get_trades(start=start.timestamp())[0]
-        trades = [
-            Trade(
-                txid=row["txid"],
-                pair=row["pair"],
-                trade_at=timezone.make_aware(datetime.fromtimestamp(row["time"])),
-                order_type=row["type"],
-                price=row["price"],
-                cost=row["cost"],
-                volume=row["vol"],
-                fee=row["fee"],
-                margin=row["margin"],
-                misc=row["misc"],
-                raw=row.to_dict(),
-            )
-            for _, row in df.iterrows()
-        ]
-
-        trades.sort(key=lambda x: x.trade_at)
-        logging.info(f"update_trade_history: {Trade.objects.bulk_create(trades)}")
+    send_message(text, is_markdown=True)

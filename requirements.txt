@@ -22,7 +22,7 @@ apscheduler==3.6.3
     # via python-telegram-bot
 argcomplete==3.3.0
     # via zappa
-asgiref==3.7.2
+asgiref==3.8.1
     # via django
 asttokens==2.4.1
     # via stack-data
@@ -83,21 +83,21 @@ deprecated==1.2.14
     # via fabric
 distro==1.9.0
     # via anthropic
-django==5.0.4
+dj-database-url==2.3.0
+    # via -r requirements.in
+django==5.1.4
     # via
     #   -r requirements.in
+    #   dj-database-url
     #   django-extensions
     #   django-model-utils
-    #   django-s3-sqlite
     #   django-storages
     #   sentry-sdk
 django-dotenv==1.4.2
     # via -r requirements.in
 django-extensions==3.2.3
     # via -r requirements.in
-django-model-utils==4.5.1
-    # via -r requirements.in
-django-s3-sqlite @ git+https://github.com/sebatyler/django-s3-sqlite.git@main
+django-model-utils==5.0.0
     # via -r requirements.in
 django-storages[s3]==1.14.3
     # via -r requirements.in
@@ -190,8 +190,6 @@ jsonpointer==2.4
     # via jsonpatch
 kappa==0.6.0
     # via zappa
-krakenex==2.2.1
-    # via pykrakenapi
 langchain==0.3.13
     # via -r requirements.in
 langchain-anthropic==0.3.1
@@ -243,7 +241,6 @@ packaging==23.2
 pandas==2.0.3
     # via
     #   nasdaq-data-link
-    #   pykrakenapi
     #   yfinance
 paramiko==3.4.0
     # via fabric
@@ -275,6 +272,12 @@ protobuf==5.29.2
     #   googleapis-common-protos
     #   grpcio-status
     #   proto-plus
+psycopg[binary]==3.2.3
+    # via -r requirements.in
+psycopg-binary==3.2.3
+    # via psycopg
+psycopg-pool==3.2.4
+    # via -r requirements.in
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
@@ -301,8 +304,6 @@ pydantic-core==2.23.4
 pygments==2.18.0
     # via ipython
 pyjwt==2.10.1
-    # via -r requirements.in
-pykrakenapi==0.3.2
     # via -r requirements.in
 pynacl==1.5.0
     # via paramiko
@@ -338,7 +339,6 @@ pyyaml==6.0.1
 requests==2.31.0
     # via
     #   google-api-core
-    #   krakenex
     #   langchain
     #   langsmith
     #   nasdaq-data-link
@@ -399,9 +399,12 @@ troposphere==4.8.0
 typing-extensions==4.11.0
     # via
     #   anthropic
+    #   dj-database-url
     #   google-generativeai
     #   ipython
     #   langchain-core
+    #   psycopg
+    #   psycopg-pool
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
