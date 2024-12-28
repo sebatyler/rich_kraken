@@ -6,8 +6,15 @@ from sentry_sdk.integrations.django import DjangoIntegration
 DEBUG = False
 
 # storage
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+    },
+}
+
 AWS_LOCATION = "static"
 AWS_STORAGE_BUCKET_NAME = "rich-kraken-storage"
 AWS_S3_REGION_NAME = "ap-northeast-2"

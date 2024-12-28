@@ -68,8 +68,8 @@ def build(c, use_cache=True):
             f"--build-arg USE_CACHE={1 if use_cache else 0}",
             f"--build-arg PACKAGE_FILE={package_file}",
             f"--build-arg TARGET={target}",
-            f"--build-arg aws_access_key_id={access_key}",
-            f"--build-arg aws_secret_access_key={secret_key}",
+            f"--secret id=aws_access_key_id,env=AWS_ACCESS_KEY_ID",
+            f"--secret id=aws_secret_access_key,env=AWS_SECRET_ACCESS_KEY",
             f"-t {_get_docker_image()}:latest",
         ]
         if progress:
