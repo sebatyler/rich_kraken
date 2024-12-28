@@ -70,7 +70,9 @@ ROOT_URLCONF = "rich_trader.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.jinja2.Jinja2",
-        "DIRS": [BASE_DIR / "rich_trader" / "jinja2"],
+        "DIRS": [
+            BASE_DIR / "rich_trader" / "jinja2",
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "environment": "rich_trader.jinja2.environment",
@@ -163,9 +165,6 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
 
 AUTH_USER_MODEL = "accounts.User"
 

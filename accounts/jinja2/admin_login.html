@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8">
+                관리자 로그인
+            </h2>
+            {% with next_url=next_url %}
+            {% include "components/google_login_button.html" %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+{% endblock %}

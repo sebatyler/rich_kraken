@@ -2,9 +2,12 @@ import logging
 
 from firebase_admin import auth
 
+from django.conf import settings
 from django.contrib.auth import login
 from django.http import HttpResponse
 from django.http import HttpResponseBadRequest
+from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -17,6 +20,8 @@ def verify_firebase_token(request):
     try:
         data = request.POST
         token = data.get("token")
+        next_url = request.GET.get("next", "/")
+
         decoded_token = auth.verify_id_token(token)
 
         user, _ = User.objects.get_or_create(
@@ -31,14 +36,14 @@ def verify_firebase_token(request):
         login(request, user)
 
         return HttpResponse(
-            """
+            f"""
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
                 로그인 성공! 리다이렉트 중...
             </div>
             <script>
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1000);
+                setTimeout(() => {{
+                    window.location.href = '{next_url}';
+                }}, 1000);
             </script>
             """
         )
@@ -52,3 +57,12 @@ def verify_firebase_token(request):
             </div>
             """,
         )
+
+
+def admin_login(request):
+    next_url = request.GET.get("next", reverse("admin:index"))
+    return render(
+        request,
+        "admin_login.html",
+        {"next_url": next_url, "firebase_config": settings.FIREBASE_CONFIG},
+    )
