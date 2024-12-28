@@ -494,9 +494,8 @@ def fetch_crypto_listings():
                 )
             )
 
-    with ConnectionContextManager():
-        result = CryptoListing.objects.bulk_create(listing)
-        logging.info(f"fetch_crypto_listings: {len(result)}")
+    result = CryptoListing.objects.bulk_create(listing)
+    logging.info(f"fetch_crypto_listings: {len(result)}")
 
 
 def pretty_currency(value):
