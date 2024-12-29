@@ -17,5 +17,7 @@ class TradingConfigAdmin(SimpleHistoryAdmin, ModelAdmin):
         "modified",
     )
     list_filter = ("is_active",)
+    list_select_related = ("user",)
     search_fields = ("user__username", "user__email")
     raw_id_fields = ("user",)
+    list_display_links = ("id", "user")
