@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
-    "simple_history",
+    "django_json_widget",
     "rich",
     "accounts",
     "trading",

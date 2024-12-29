@@ -70,3 +70,15 @@ def buy_ticker(ticker, amount_krw):
             "amount": amount_krw,
         },
     )
+
+
+def get_order_detail(order_id, target_currency):
+    return get_response(
+        action=f"/v2.1/order/detail",
+        payload={
+            "access_token": ACCESS_TOKEN,
+            "order_id": order_id,
+            "quote_currency": "KRW",
+            "target_currency": target_currency,
+        },
+    )

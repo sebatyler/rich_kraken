@@ -7,6 +7,8 @@ django-extensions==3.2.3
 django-storages[s3]==1.14.3
 django-simple-history==3.7.0
 dj-database-url==2.3.0
+django-json-widget==2.0.1
+
 psycopg[binary]==3.2.3
 psycopg-pool==3.2.4
 

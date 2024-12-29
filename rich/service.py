@@ -24,6 +24,7 @@ from core import crypto
 from core import utils
 from core.llm import invoke_llm
 from core.telegram import send_message
+from trading.models import Trading
 from trading.models import TradingConfig
 
 from .models import CryptoListing
@@ -323,7 +324,7 @@ def buy_crypto():
 
                 crypto_data = user_crypto_data[symbol]
                 crypto_price = crypto_data["input_data"]["current_price"]
-                crypto_balance = crypto_data["input_data"]["my_crypto_balance"]
+                crypto_balance = balances[symbol]
 
                 # buy crypto
                 logging.info(f"{symbol} {crypto_price=}, {amount=}")
@@ -331,6 +332,24 @@ def buy_crypto():
                 if not settings.DEBUG:
                     r = coinone.buy_ticker(symbol, amount)
                     logging.info(f"buy_ticker: {r}")
+
+                    order_id = r["order_id"]
+                    order_detail = coinone.get_order_detail(order_id, symbol)
+                    logging.info(f"order_detail: {order_detail}")
+
+                    order_data = order_detail["order"]
+                    Trading.objects.create(
+                        user=config.user,
+                        order_id=order_id,
+                        coin=symbol,
+                        amount=amount,
+                        price=crypto_price,
+                        type=order_data["type"],
+                        side=order_data["side"],
+                        status=order_data["status"],
+                        fee=order_data["fee"],
+                        order_detail=order_detail,
+                    )
 
                 # current balance and value after order
                 balances = coinone.get_balances()
