@@ -11,10 +11,10 @@ ACCESS_TOKEN = None
 SECRET_KEY = None
 
 
-def init(second=False):
+def init(access_key, secret_key):
     global ACCESS_TOKEN, SECRET_KEY
-    ACCESS_TOKEN = os.getenv("COINONE_ACCESS_TOKEN_2ND" if second else "COINONE_ACCESS_TOKEN")
-    SECRET_KEY = bytes(os.getenv("COINONE_SECRET_KEY_2ND" if second else "COINONE_SECRET_KEY"), "utf-8")
+    ACCESS_TOKEN = access_key
+    SECRET_KEY = bytes(secret_key, "utf-8")
 
 
 def get_encoded_payload(payload):

@@ -13,6 +13,10 @@ class TradingConfigAdmin(SimpleHistoryAdmin, ModelAdmin):
         "id",
         "user",
         "is_active",
+        "target_coins",
+        "min_amount",
+        "max_amount",
+        "step_amount",
         "created",
         "modified",
     )
