@@ -16,6 +16,10 @@ class TradingConfig(TimeStampedModel):
     min_amount = models.PositiveIntegerField(default=5_000, help_text="Minimum amount in KRW to invest")
     max_amount = models.PositiveIntegerField(default=30_000, help_text="Maximum amount in KRW to invest")
     step_amount = models.PositiveIntegerField(default=5_000, help_text="Step amount in KRW for investment increments")
+    min_coins = models.SmallIntegerField(
+        default=1, help_text="Minimum number of coins to recommend (0 means no minimum)"
+    )
+    max_coins = models.PositiveSmallIntegerField(default=2, help_text="Maximum number of coins to recommend")
 
     history = HistoricalRecords()
 
@@ -33,6 +37,12 @@ class TradingConfig(TimeStampedModel):
             raise ValidationError("Step amount must not be greater than maximum amount")
         if self.min_amount <= 0 or self.max_amount <= 0 or self.step_amount <= 0:
             raise ValidationError("All amounts must be positive")
+        if self.min_coins < 0:
+            raise ValidationError("Minimum number of coins cannot be negative")
+        if self.min_coins > self.max_coins:
+            raise ValidationError("Minimum coins must be less than maximum coins")
+        if self.max_coins <= 0:
+            raise ValidationError("Maximum number of coins must be positive")
 
     def save(self, *args, **kwargs):
         self.full_clean()

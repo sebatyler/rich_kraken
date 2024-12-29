@@ -169,6 +169,10 @@ Investment amount rules:
 - Use medium amounts for good setups with moderate risk
 - Use lower amounts (near min) for higher risk opportunities
 
+Number of recommendations:
+- Maximum coins to recommend: {trading_config.max_coins}
+- Minimum coins to recommend: {trading_config.min_coins} (0 means no minimum)
+
 Your task:
 1. Analyze each cryptocurrency's data considering:
    - Current price and trading volume
@@ -177,8 +181,7 @@ Your task:
    - Technical indicators and patterns
    - Risk level and market volatility
 
-2. Recommend 1-2 cryptocurrencies with the highest potential for gains
-   - MUST recommend at least 1 cryptocurrency to buy
+2. Recommend {trading_config.min_coins}-{trading_config.max_coins} cryptocurrencies with the highest potential for gains
    - Focus on coins showing strong momentum or potential reversal signals
    - Investment amount should reflect both opportunity and risk
 
@@ -235,9 +238,8 @@ Critical format rules:
 Remember:
 1. Write analysis and reasoning in Korean
 2. Balance risk and reward when determining amounts
-3. MUST recommend at least 1 coin to buy
-4. Consider both technical and fundamental factors
-5. This analysis runs daily - focus on opportunities"""
+3. Consider both technical and fundamental factors
+4. This analysis runs daily - focus on opportunities"""
 
     return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
 
