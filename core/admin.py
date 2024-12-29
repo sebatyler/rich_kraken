@@ -17,7 +17,7 @@ class RawIdFieldsMixin:
 
 
 class ModelAdmin(RawIdFieldsMixin, admin.ModelAdmin):
-    compressed_fields = True
+    pass
 
 
 class TabularInline(RawIdFieldsMixin, admin.TabularInline):
