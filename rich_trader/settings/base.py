@@ -51,8 +51,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    "simple_history",
     "rich",
     "accounts",
+    "trading",
 ]
 
 MIDDLEWARE = [

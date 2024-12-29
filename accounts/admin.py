@@ -1,3 +1,5 @@
+from simple_history.admin import SimpleHistoryAdmin
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
@@ -6,7 +8,7 @@ from .models import User
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
+class UserAdmin(SimpleHistoryAdmin, BaseUserAdmin):
     list_display = ("id", "email", "username", "is_staff", "firebase_uid", "created", "modified")
     list_filter = ("is_active", "is_staff", "is_superuser", "groups")
     search_fields = ("username", "email", "firebase_uid")
@@ -27,8 +29,6 @@ class UserAdmin(BaseUserAdmin):
                     "is_active",
                     "is_staff",
                     "is_superuser",
-                    "groups",
-                    "user_permissions",
                 ),
             },
         ),
