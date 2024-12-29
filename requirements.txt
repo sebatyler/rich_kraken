@@ -95,13 +95,18 @@ django==5.1.4
     #   dj-database-url
     #   django-extensions
     #   django-model-utils
+    #   django-simple-history
     #   django-storages
     #   sentry-sdk
 django-dotenv==1.4.2
     # via -r requirements.in
 django-extensions==3.2.3
     # via -r requirements.in
+django-json-widget==2.0.1
+    # via -r requirements.in
 django-model-utils==5.0.0
+    # via -r requirements.in
+django-simple-history==3.7.0
     # via -r requirements.in
 django-storages[s3]==1.14.3
     # via -r requirements.in

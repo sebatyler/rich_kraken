@@ -4,10 +4,8 @@ import re
 from datetime import timedelta
 
 import pandas as pd
-import telegram
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import field_validator
 
 from django.conf import settings
 from django.db.models import Avg
@@ -26,37 +24,10 @@ from core import crypto
 from core import utils
 from core.llm import invoke_llm
 from core.telegram import send_message
+from trading.models import Trading
+from trading.models import TradingConfig
 
 from .models import CryptoListing
-
-
-class CryptoConfig(BaseModel):
-    min_amount: int = Field(default=5_000, description="Minimum amount in KRW to invest")
-    max_amount: int = Field(default=30_000, description="Maximum amount in KRW to invest")
-    step_amount: int = Field(default=5_000, description="Step amount in KRW for investment increments")
-
-    @field_validator("min_amount", "max_amount", "step_amount")
-    @classmethod
-    def validate_amounts(cls, v):
-        if v <= 0:
-            raise ValueError("Amount must be positive")
-        return v
-
-    @field_validator("max_amount")
-    @classmethod
-    def validate_max_amount(cls, v, info):
-        min_amount = info.data.get("min_amount")
-        if min_amount is not None and v < min_amount:
-            raise ValueError("max_amount must be greater than min_amount")
-        return v
-
-    @field_validator("step_amount")
-    @classmethod
-    def validate_step_amount(cls, v, info):
-        max_amount = info.data.get("max_amount")
-        if max_amount is not None and v > max_amount:
-            raise ValueError("step_amount must not be greater than max_amount")
-        return v
 
 
 class BaseStrippedModel(BaseModel):
@@ -71,22 +42,7 @@ class MultiCryptoRecommendation(BaseStrippedModel):
     recommendations: list[dict] = Field(..., description="List of recommended cryptocurrencies and amounts")
 
 
-CRYPTO_CONFIGS = {
-    "BTC": CryptoConfig(),
-    "ETH": CryptoConfig(),
-    "XRP": CryptoConfig(),
-    "DOGE": CryptoConfig(),
-    "SOL": CryptoConfig(),
-    "DOT": CryptoConfig(),
-    "FET": CryptoConfig(),
-    "WLD": CryptoConfig(),
-    "STRK": CryptoConfig(),
-    "BLAST": CryptoConfig(),
-    "MOVE": CryptoConfig(),
-}
-
-
-def collect_crypto_data(symbol: str, start_date: str, config):
+def collect_crypto_data(symbol: str, start_date: str):
     """특정 암호화폐의 모든 관련 데이터를 수집합니다."""
     ticker = coinone.get_ticker(symbol)
     crypto_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
@@ -128,11 +84,12 @@ def collect_crypto_data(symbol: str, start_date: str, config):
         "crypto_data_csv": crypto_data_csv,
         "network_stats_csv": network_stats_csv,
         "crypto_news_csv": crypto_news_csv,
-        "config": config,
     }
 
 
-def get_multi_recommendation(crypto_data_list: list[dict], indices_csv: str) -> MultiCryptoRecommendation:
+def get_multi_recommendation(
+    crypto_data_list: list[dict], indices_csv: str, balances: dict[str, dict], trading_config: TradingConfig
+) -> MultiCryptoRecommendation:
     """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
     # 각 코인별 데이터를 하나의 문자열로 조합
     data_descriptions = []
@@ -140,6 +97,10 @@ def get_multi_recommendation(crypto_data_list: list[dict], indices_csv: str) -> 
         symbol = data["symbol"]
         description = f"""
 === {symbol} Data ===
+User's current balance data in KRW in JSON
+```json
+{symbol}_balance_json
+```
 Recent trading data in KRW in JSON (including user's current balance)
 ```json
 {symbol}_json_data
@@ -162,7 +123,7 @@ News in CSV
 {symbol}_crypto_news_csv
 ```"""
         description = re.sub(
-            rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv))",
+            rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv|balance_json))",
             r"{\1}",
             description,
             flags=re.MULTILINE,
@@ -177,15 +138,6 @@ Indices data in USD in CSV
 {indices_csv}
 ```"""
 
-    # 각 코인의 설정 정보를 문자열로 조합
-    config_descriptions = []
-    for data in crypto_data_list:
-        symbol = data["symbol"]
-        config = data["config"]
-        config_descriptions.append(
-            f"{symbol}: min={config.min_amount:,}KRW, max={config.max_amount:,}KRW, step={config.step_amount:,}KRW"
-        )
-
     # 각 코인별 데이터를 개별 변수로 전달하기 위한 kwargs 구성
     kwargs = {
         "indices_csv": indices_csv,
@@ -194,8 +146,10 @@ Indices data in USD in CSV
     # 각 코인별로 데이터 변수 추가
     for data in crypto_data_list:
         symbol = data["symbol"]
+        balance = balances.get(symbol, {})
         kwargs.update(
             {
+                f"{symbol}_balance_json": json.dumps(balance),
                 f"{symbol}_json_data": json.dumps(data["input_data"]),
                 f"{symbol}_crypto_data_csv": data["crypto_data_csv"],
                 f"{symbol}_crypto_news_csv": data["crypto_news_csv"],
@@ -206,8 +160,19 @@ Indices data in USD in CSV
 
     prompt = f"""You are an aggressive cryptocurrency investment advisor focusing on high-potential daily trading opportunities. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
 
-Available cryptocurrencies and their investment limits:
-{chr(10).join(config_descriptions)}
+Investment amount rules:
+- Minimum amount: {trading_config.min_amount:,} KRW
+- Maximum amount: {trading_config.max_amount:,} KRW
+- Step amount: {trading_config.step_amount:,} KRW
+- Amount must be a multiple of step amount
+- Focus on coins showing strong momentum or potential reversal signals
+- Use higher amounts (near max) for strong setups with lower risk
+- Use medium amounts for good setups with moderate risk
+- Use lower amounts (near min) for higher risk opportunities
+
+Number of recommendations:
+- Maximum coins to recommend: {trading_config.max_coins}
+- Minimum coins to recommend: {trading_config.min_coins} (0 means no minimum)
 
 Your task:
 1. Analyze each cryptocurrency's data considering:
@@ -217,14 +182,9 @@ Your task:
    - Technical indicators and patterns
    - Risk level and market volatility
 
-2. Recommend 1-2 cryptocurrencies with the highest potential for gains
-   - MUST recommend at least 1 cryptocurrency to buy
+2. Recommend {trading_config.min_coins}-{trading_config.max_coins} cryptocurrencies with the highest potential for gains
    - Focus on coins showing strong momentum or potential reversal signals
-   - Investment amount should reflect both opportunity and risk:
-     * Use higher amounts (near max) for strong setups with lower risk
-     * Use medium amounts for good setups with moderate risk
-     * Use lower amounts (near min) for higher risk opportunities
-   - Amount must be within specified limits and in step size multiples
+   - Investment amount should reflect both opportunity and risk
 
 The output MUST strictly follow this YAML format:
 ```yaml
@@ -279,9 +239,8 @@ Critical format rules:
 Remember:
 1. Write analysis and reasoning in Korean
 2. Balance risk and reward when determining amounts
-3. MUST recommend at least 1 coin to buy
-4. Consider both technical and fundamental factors
-5. This analysis runs daily - focus on opportunities"""
+3. Consider both technical and fundamental factors
+4. This analysis runs daily - focus on opportunities"""
 
     return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
 
@@ -295,90 +254,121 @@ def buy_crypto():
     # 시장 지표 데이터 가져오기
     indices_data_csv = crypto.get_market_indices(start_date)
 
+    # 활성화된 트레이딩 설정에서 모든 target_coins를 가져와서 중복 제거
+    active_configs = TradingConfig.objects.filter(is_active=True)
+    target_coins = set()
+    for config in active_configs:
+        target_coins.update(config.target_coins)
+
     # 모든 코인의 데이터 수집
     crypto_data_dict = {}
-    for symbol in CRYPTO_CONFIGS.keys():
+    for symbol in target_coins:
         try:
-            crypto_data = collect_crypto_data(symbol, start_date, CRYPTO_CONFIGS[symbol])
+            crypto_data = collect_crypto_data(symbol, start_date)
             crypto_data_dict[symbol] = crypto_data
         except Exception as e:
             logging.error(f"Failed to collect data for {symbol}: {e}")
             continue
 
-    target_coins_list = [
-        ("DOGE", "SOL", "DOT", "FET", "WLD", "STRK", "BLAST", "MOVE"),
-        ("BTC", "ETH", "XRP", "DOGE", "SOL", "WLD", "DOT"),
-    ]
+    # 각 활성화된 유저별로 처리
+    for config in active_configs:
+        config: TradingConfig = config
+        chat_id = config.telegram_chat_id
 
-    for i in range(2):
-        is_second = i > 0
-        target_coins = target_coins_list[i]
+        try:
+            # initialize coinone
+            coinone.init(
+                access_key=config.coinone_access_key,
+                secret_key=config.coinone_secret_key,
+            )
 
-        # initialize coinone
-        coinone.init(second=is_second)
-
-        # 잔고 조회해서 input_data에 추가
-        prev_balances = coinone.get_balances()
-        target_crypto_data = {}
-        for symbol, data in crypto_data_dict.items():
-            if symbol in target_coins:
-                data["input_data"]["my_crypto_balance"] = prev_balances.get(symbol, {})
-                target_crypto_data[symbol] = data
-
-        # LLM에게 추천 받기
-        result, exc = [None] * 2
-        for _ in range(3):
-            try:
-                result = get_multi_recommendation(list(target_crypto_data.values()), indices_data_csv)
-                break
-            except Exception as e:
-                logging.warning(e)
-                exc = e
-
-        if not result and exc:
-            raise exc
-
-        # 분석 결과 전송
-        send_message(
-            f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
-            is_markdown=True,
-            second=is_second,
-        )
-
-        # 추천받은 코인 구매
-        for recommendation in result.recommendations:
-            symbol = recommendation["symbol"]
-            amount = recommendation["amount"]
-
-            if amount == 0:
-                continue
-
-            crypto_data = target_crypto_data[symbol]
-            crypto_price = crypto_data["input_data"]["current_price"]
-            crypto_balance = crypto_data["input_data"]["my_crypto_balance"]
-
-            # buy crypto
-            logging.info(f"{symbol} {crypto_price=}, {amount=}")
-
-            if not settings.DEBUG:
-                r = coinone.buy_ticker(symbol, amount)
-                logging.info(f"buy_ticker: {r}")
-
-            # current balance and value after order
             balances = coinone.get_balances()
-            crypto_amount = float(balances[symbol]["available"])
-            crypto_value = crypto_amount * crypto_price
-            krw_amount = float(balances["KRW"]["available"])
-            bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
 
-            price_msg = "{:,.0f}".format(crypto_price)
-            message_lines = [
-                f"Buy: {bought_crypto:,.8f} {symbol} ({amount:,} KRW)",
-                f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
-                f"{symbol} price: {price_msg}KRW",
-            ]
+            # 해당 유저의 target_coins에 대한 데이터만 필터링
+            user_crypto_data = {
+                symbol: crypto_data_dict[symbol] for symbol in config.target_coins if symbol in crypto_data_dict
+            }
 
-            send_message("\n".join(message_lines), second=is_second)
+            # LLM에게 추천 받기
+            result, exc = [None] * 2
+            for _ in range(3):
+                try:
+                    result = get_multi_recommendation(
+                        list(user_crypto_data.values()),
+                        indices_data_csv,
+                        balances,
+                        config,
+                    )
+                    break
+                except Exception as e:
+                    logging.warning(e)
+                    exc = e
+
+            if not result and exc:
+                raise exc
+
+            # 분석 결과 전송
+            send_message(
+                f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
+                chat_id=chat_id,
+                is_markdown=True,
+            )
+
+            # 추천받은 코인 구매
+            for recommendation in result.recommendations:
+                symbol = recommendation["symbol"]
+                amount = recommendation["amount"]
+
+                if amount == 0:
+                    continue
+
+                crypto_data = user_crypto_data[symbol]
+                crypto_price = crypto_data["input_data"]["current_price"]
+                crypto_balance = balances[symbol]
+
+                # buy crypto
+                logging.info(f"{symbol} {crypto_price=}, {amount=}")
+
+                if not settings.DEBUG:
+                    r = coinone.buy_ticker(symbol, amount)
+                    logging.info(f"buy_ticker: {r}")
+
+                    order_id = r["order_id"]
+                    order_detail = coinone.get_order_detail(order_id, symbol)
+                    logging.info(f"order_detail: {order_detail}")
+
+                    order_data = order_detail["order"]
+                    Trading.objects.create(
+                        user=config.user,
+                        order_id=order_id,
+                        coin=symbol,
+                        amount=amount,
+                        price=crypto_price,
+                        type=order_data["type"],
+                        side=order_data["side"],
+                        status=order_data["status"],
+                        fee=order_data["fee"],
+                        order_detail=order_detail,
+                    )
+
+                # current balance and value after order
+                balances = coinone.get_balances()
+                crypto_amount = float(balances[symbol]["available"])
+                crypto_value = crypto_amount * crypto_price
+                krw_amount = float(balances["KRW"]["available"])
+                bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
+
+                price_msg = "{:,.0f}".format(crypto_price)
+                message_lines = [
+                    f"Buy: {bought_crypto:,.8f} {symbol} ({amount:,} KRW)",
+                    f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
+                    f"{symbol} price: {price_msg}KRW",
+                ]
+
+                send_message("\n".join(message_lines), chat_id=chat_id)
+
+        except Exception as e:
+            logging.exception(f"Error processing user {config.user}: {e}")
 
 
 def fetch_crypto_listings():
@@ -463,4 +453,5 @@ def select_coins_to_buy():
     else:
         text = "No coins met the criteria for buying\."
 
-    send_message(text, is_markdown=True)
+    config = TradingConfig.objects.filter(is_active=True, is_superuser=True).first()
+    send_message(text, chat_id=config.telegram_chat_id, is_markdown=True)
