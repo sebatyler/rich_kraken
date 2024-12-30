@@ -53,22 +53,22 @@ class Trading(TimeStampedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     order_id = models.CharField(max_length=255)
     coin = models.CharField(max_length=255)
-    amount = models.DecimalField(max_digits=13, decimal_places=0, help_text="주문 금액 (KRW)")
+    amount = models.DecimalField(max_digits=20, decimal_places=0, help_text="주문 금액 (KRW)")
 
     type = models.CharField(max_length=20, help_text="주문 유형 (예: MARKET)")
     side = models.CharField(max_length=10, help_text="BUY/SELL")
     status = models.CharField(max_length=50)
-    fee = models.DecimalField(max_digits=13, decimal_places=0, help_text="거래 수수료 (KRW)")
-    price = models.DecimalField(max_digits=13, decimal_places=0, null=True, blank=True, help_text="주문 가격 (KRW)")
+    fee = models.DecimalField(max_digits=20, decimal_places=0, help_text="거래 수수료 (KRW)")
+    price = models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True, help_text="주문 가격 (KRW)")
     fee_rate = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True, help_text="수수료율 (%)")
     average_executed_price = models.DecimalField(
-        max_digits=13, decimal_places=0, null=True, blank=True, help_text="평균 체결 가격 (KRW)"
+        max_digits=20, decimal_places=0, null=True, blank=True, help_text="평균 체결 가격 (KRW)"
     )
     average_fee_rate = models.DecimalField(
         max_digits=5, decimal_places=4, null=True, blank=True, help_text="평균 수수료율 (%)"
     )
     limit_price = models.DecimalField(
-        max_digits=13, decimal_places=0, null=True, blank=True, help_text="체결 가격 한도 (KRW)"
+        max_digits=20, decimal_places=0, null=True, blank=True, help_text="체결 가격 한도 (KRW)"
     )
     original_qty = models.DecimalField(
         max_digits=17, decimal_places=8, null=True, blank=True, help_text="최초 주문 수량 (코인)"
@@ -79,10 +79,10 @@ class Trading(TimeStampedModel):
     canceled_qty = models.DecimalField(
         max_digits=17, decimal_places=8, null=True, blank=True, help_text="취소된 수량 (코인)"
     )
-    traded_amount = models.DecimalField(max_digits=13, decimal_places=0, null=True, blank=True, help_text="체결된 총액")
-    original_amount = models.DecimalField(max_digits=13, decimal_places=0, null=True, blank=True, help_text="주문 총액")
+    traded_amount = models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True, help_text="체결된 총액")
+    original_amount = models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True, help_text="주문 총액")
     canceled_amount = models.DecimalField(
-        max_digits=13, decimal_places=0, blank=True, null=True, help_text="주문 취소 총액"
+        max_digits=20, decimal_places=0, blank=True, null=True, help_text="주문 취소 총액"
     )
 
     order_detail = models.JSONField(default=dict)
