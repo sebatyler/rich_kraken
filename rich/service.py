@@ -453,5 +453,5 @@ def select_coins_to_buy():
     else:
         text = "No coins met the criteria for buying\."
 
-    config = TradingConfig.objects.filter(is_active=True, is_superuser=True).first()
+    config = TradingConfig.objects.filter(is_active=True, user__is_superuser=True).first()
     send_message(text, chat_id=config.telegram_chat_id, is_markdown=True)
