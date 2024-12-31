@@ -26,14 +26,7 @@ class IndexView(TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        trading_config = TradingConfig.objects.filter(user=request.user).first()
-        if not trading_config:
-            trading_config = TradingConfig.objects.create(
-                user=request.user,
-                is_active=False,
-            )
-
-        form = TradingConfigForm(request.POST, instance=trading_config)
+        form = TradingConfigForm(request.POST, instance=request.user.tradingconfig)
         if form.is_valid():
             form.save()
             if request.headers.get("HX-Request"):
