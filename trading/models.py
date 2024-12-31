@@ -11,15 +11,40 @@ class TradingConfig(TimeStampedModel):
     coinone_access_key = models.CharField(max_length=255)
     coinone_secret_key = models.CharField(max_length=255)
     telegram_chat_id = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True)
-    target_coins = models.JSONField(help_text="List of target coins", default=list)
-    min_amount = models.PositiveIntegerField(default=5_000, help_text="Minimum amount in KRW to invest")
-    max_amount = models.PositiveIntegerField(default=30_000, help_text="Maximum amount in KRW to invest")
-    step_amount = models.PositiveIntegerField(default=5_000, help_text="Step amount in KRW for investment increments")
-    min_coins = models.SmallIntegerField(
-        default=1, help_text="Minimum number of coins to recommend (0 means no minimum)"
+    is_active = models.BooleanField(
+        verbose_name="자동 매수 활성화",
+        help_text="체크하면 자동 매수가 활성화됩니다",
+        default=True,
     )
-    max_coins = models.PositiveSmallIntegerField(default=2, help_text="Maximum number of coins to recommend")
+    target_coins = models.JSONField(
+        help_text="List of target coins",
+        default=list,
+    )
+    min_amount = models.PositiveIntegerField(
+        verbose_name="최소 매수금액",
+        help_text="한 번에 매수할 최소 금액 (원)",
+        default=5_000,
+    )
+    max_amount = models.PositiveIntegerField(
+        verbose_name="최대 매수금액",
+        help_text="한 번에 매수할 최대 금액 (원)",
+        default=30_000,
+    )
+    step_amount = models.PositiveIntegerField(
+        verbose_name="매수금액 단위",
+        help_text="매수금액의 증가 단위 (원)",
+        default=5_000,
+    )
+    min_coins = models.SmallIntegerField(
+        verbose_name="최소 코인 개수",
+        help_text="한 번에 추천할 최소 코인 개수 (0은 제한 없음)",
+        default=1,
+    )
+    max_coins = models.PositiveSmallIntegerField(
+        verbose_name="최대 코인 개수",
+        help_text="한 번에 추천할 최대 코인 개수",
+        default=2,
+    )
 
     history = HistoricalRecords()
 

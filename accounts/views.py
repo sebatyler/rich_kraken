@@ -64,5 +64,5 @@ def admin_login(request):
     return render(
         request,
         "admin_login.html",
-        {"next_url": next_url, "firebase_config": settings.FIREBASE_CONFIG},
+        {"next_url": next_url},
     )

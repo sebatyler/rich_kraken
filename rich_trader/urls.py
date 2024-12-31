@@ -24,6 +24,6 @@ from rich.views import IndexView
 urlpatterns = [
     path("_a/login/", admin_login, name="admin_login"),
     path("_a/", admin.site.urls),
-    path("", IndexView.as_view()),
+    path("", IndexView.as_view(), name="index"),
     path("accounts/", include("accounts.urls")),
 ]

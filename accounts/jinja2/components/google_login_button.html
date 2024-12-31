@@ -10,23 +10,7 @@
 
 {% if not request.user.is_authenticated %}
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-analytics.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-    const firebaseConfig = {
-        apiKey: "{{ firebase_config.apiKey }}",
-        authDomain: "{{ firebase_config.authDomain }}",
-        projectId: "{{ firebase_config.projectId }}",
-        storageBucket: "{{ firebase_config.storageBucket }}",
-        messagingSenderId: "{{ firebase_config.messagingSenderId }}",
-        appId: "{{ firebase_config.appId }}",
-        measurementId: "{{ firebase_config.measurementId }}"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const auth = getAuth(app);
+    import { signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
     document.getElementById('googleLogin').addEventListener('click', async () => {
         const provider = new GoogleAuthProvider();
@@ -37,7 +21,7 @@
         </div>
       `;
 
-            const result = await signInWithPopup(auth, provider);
+            const result = await signInWithPopup(firebase.auth, provider);
             const token = await result.user.getIdToken();
 
             htmx.ajax('POST', '{{ url("accounts:verify_token") }}{% if next_url %}?next={{ next_url }}{% endif %}', {
