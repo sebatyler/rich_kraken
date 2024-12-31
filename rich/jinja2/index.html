@@ -24,6 +24,148 @@
         </div>
       </div>
     </div>
+
+    <div class="mt-8 bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
+      <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">트레이딩 설정</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          자동 매수를 위한 설정을 관리합니다.
+          매일 아침 7시 15분에 자동으로 매수가 진행됩니다.
+        </p>
+      </div>
+      <div class="px-4 py-5 sm:p-6">
+        {% for message in get_messages(request) %}
+        <div class="mb-4 rounded-md bg-green-50 p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-green-800">
+                {{ message }}
+              </p>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div id="alert-container"></div>
+
+        <form method="post" action="{{ request.path }}" hx-post="{{ request.path }}" hx-target="#alert-container"
+          hx-swap="innerHTML" hx-trigger="submit"
+          hx-on::before-request="document.getElementById('alert-container').innerHTML = ''">
+          {{ csrf_input }}
+
+          <div class="space-y-8">
+            {# 코인 설정 #}
+            <div>
+              <div class="border-b border-gray-200 pb-2">
+                <h4 class="text-base font-semibold text-gray-900">코인 설정</h4>
+              </div>
+              <div class="mt-4">
+                {% with field = form.target_coins %}
+                <div>
+                  <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                    {{ field.label }}
+                  </label>
+                  <div class="mt-1">
+                    {{ field }}
+                  </div>
+                  {% if field.help_text %}
+                  <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
+                  {% endif %}
+                  {% if field.errors %}
+                  <p class="mt-2 text-sm text-red-600">{{ field.errors[0] }}</p>
+                  {% endif %}
+                </div>
+                {% endwith %}
+              </div>
+            </div>
+
+            {# 투자금액 설정 #}
+            <div>
+              <div class="border-b border-gray-200 pb-2">
+                <h4 class="text-base font-semibold text-gray-900">매수금액 설정</h4>
+              </div>
+              <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+                {% for field in [form.min_amount, form.max_amount, form.step_amount] %}
+                <div>
+                  <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                    {{ field.label }}
+                  </label>
+                  <div class="mt-1">
+                    {{ field }}
+                  </div>
+                  {% if field.help_text %}
+                  <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
+                  {% endif %}
+                  {% if field.errors %}
+                  <p class="mt-2 text-sm text-red-600">{{ field.errors[0] }}</p>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            {# 추천 코인 개수 설정 #}
+            <div>
+              <div class="border-b border-gray-200 pb-2">
+                <h4 class="text-base font-semibold text-gray-900">추천 코인 개수 설정</h4>
+              </div>
+              <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                {% for field in [form.min_coins, form.max_coins] %}
+                <div>
+                  <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                    {{ field.label }}
+                  </label>
+                  <div class="mt-1">
+                    {{ field }}
+                  </div>
+                  {% if field.help_text %}
+                  <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
+                  {% endif %}
+                  {% if field.errors %}
+                  <p class="mt-2 text-sm text-red-600">{{ field.errors[0] }}</p>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            {# 활성화 설정 #}
+            <div class="relative flex items-start">
+              {% with field = form.is_active %}
+              <div class="flex items-center h-5">
+                {{ field }}
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="{{ field.id_for_label }}" class="font-medium text-gray-700">{{ field.label }}</label>
+                {% if field.help_text %}
+                <p class="text-gray-500">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                <p class="text-red-600">{{ field.errors[0] }}</p>
+                {% endif %}
+              </div>
+              {% endwith %}
+            </div>
+
+            <div class="pt-5">
+              <div class="flex justify-end">
+                <button type="submit"
+                  class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
     {% else %}
     <div class="text-center">
       <h2 class="text-3xl font-bold text-gray-900 mb-8">
