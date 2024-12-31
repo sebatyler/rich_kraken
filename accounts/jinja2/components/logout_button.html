@@ -1,0 +1,28 @@
+<form id="logout-form" action="{{ url('accounts:logout') }}" method="post" class="inline">
+    {{ csrf_input }}
+    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        onclick="handleLogout(event)">
+        로그아웃
+    </button>
+</form>
+
+<script type="module">
+    import { signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    window.handleLogout = async function (event) {
+        event.preventDefault();
+
+        try {
+            // Firebase 로그아웃
+            await signOut(firebase.auth);
+            console.log('signOut');
+
+            // Django 로그아웃
+            document.getElementById('logout-form').submit();
+        } catch (error) {
+            console.error('로그아웃 중 오류 발생:', error);
+            // 에러가 발생해도 Django 로그아웃은 진행
+            document.getElementById('logout-form').submit();
+        }
+    };
+</script>

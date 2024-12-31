@@ -20,13 +20,7 @@
           </div>
         </div>
         <div class="mt-4">
-          <form method="post" action="{{ url('accounts:logout') }}" class="inline">
-            {{ csrf_input }}
-            <button type="submit"
-              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-              로그아웃
-            </button>
-          </form>
+          {% include "components/logout_button.html" %}
         </div>
       </div>
     </div>

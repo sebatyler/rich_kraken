@@ -1,5 +1,6 @@
 from jinja2 import Environment
 
+from django.conf import settings
 from django.templatetags.static import static
 from django.urls import reverse
 
@@ -10,6 +11,7 @@ def environment(**options):
         {
             "static": static,
             "url": reverse,
+            "firebase_config": settings.FIREBASE_CONFIG,
         }
     )
     return env
