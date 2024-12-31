@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_extensions",
     "django_json_widget",
+    "simple_history",
     "rich",
     "accounts",
     "trading",
