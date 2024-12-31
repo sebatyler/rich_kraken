@@ -172,7 +172,7 @@ Investment amount rules:
 
 Number of recommendations:
 - Maximum coins to recommend: {trading_config.max_coins}
-- Minimum coins to recommend: {trading_config.min_coins} (0 means no minimum)
+- Minimum coins to recommend: {trading_config.min_coins} (0 means you can recommend no coins if no good opportunities)
 
 Your task:
 1. Analyze each cryptocurrency's data considering:
@@ -183,6 +183,7 @@ Your task:
    - Risk level and market volatility
 
 2. Recommend {trading_config.min_coins}-{trading_config.max_coins} cryptocurrencies with the highest potential for gains
+   - If min_coins is 0, you can recommend no coins if you find no good opportunities
    - Focus on coins showing strong momentum or potential reversal signals
    - Investment amount should reflect both opportunity and risk
 
