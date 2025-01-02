@@ -12,13 +12,23 @@ class TradingConfig(TimeStampedModel):
     coinone_secret_key = models.CharField(max_length=255)
     telegram_chat_id = models.CharField(max_length=255)
     is_active = models.BooleanField(
-        verbose_name="자동 매수 활성화",
-        help_text="체크하면 자동 매수가 활성화됩니다",
+        verbose_name="자동 매매 활성화",
+        help_text="체크하면 자동 매매가 활성화됩니다",
         default=True,
     )
     target_coins = models.JSONField(
         help_text="List of target coins",
         default=list,
+    )
+    min_trade_amount = models.PositiveIntegerField(
+        verbose_name="최소 거래금액",
+        help_text="거래당 최소 금액 (원)",
+        default=5_000,
+    )
+    step_amount = models.PositiveIntegerField(
+        verbose_name="거래금액 단위",
+        help_text="거래금액의 증가 단위 (원)",
+        default=5_000,
     )
     min_amount = models.PositiveIntegerField(
         verbose_name="최소 매수금액",
@@ -30,14 +40,9 @@ class TradingConfig(TimeStampedModel):
         help_text="한 번에 매수할 최대 금액 (원)",
         default=30_000,
     )
-    step_amount = models.PositiveIntegerField(
-        verbose_name="매수금액 단위",
-        help_text="매수금액의 증가 단위 (원)",
-        default=5_000,
-    )
     min_coins = models.SmallIntegerField(
         verbose_name="최소 코인 개수",
-        help_text="한 번에 추천할 최소 코인 개수 (0은 매수 추천이 없을 수 있음)",
+        help_text="한 번에 추천할 최소 코인 개수 (0은 거래 추천이 없을 수 있음)",
         default=1,
     )
     max_coins = models.PositiveSmallIntegerField(
@@ -56,18 +61,8 @@ class TradingConfig(TimeStampedModel):
         return f"{self.user.username}'s Trading Config"
 
     def clean(self):
-        if self.min_amount > self.max_amount:
-            raise ValidationError("Minimum amount must be less than maximum amount")
-        if self.step_amount > self.max_amount:
-            raise ValidationError("Step amount must not be greater than maximum amount")
-        if self.min_amount <= 0 or self.max_amount <= 0 or self.step_amount <= 0:
-            raise ValidationError("All amounts must be positive")
-        if self.min_coins < 0:
-            raise ValidationError("Minimum number of coins cannot be negative")
-        if self.min_coins > self.max_coins:
-            raise ValidationError("Minimum coins must be less than maximum coins")
-        if self.max_coins <= 0:
-            raise ValidationError("Maximum number of coins must be positive")
+        if self.min_trade_amount <= 0:
+            raise ValidationError("Minimum trade amount must be positive")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -78,7 +73,11 @@ class Trading(TimeStampedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     order_id = models.CharField(max_length=255)
     coin = models.CharField(max_length=255)
-    amount = models.DecimalField(max_digits=20, decimal_places=0, help_text="주문 금액 (KRW)")
+    amount = models.DecimalField(max_digits=20, decimal_places=0, null=True, blank=True, help_text="주문 금액 (KRW)")
+    quantity = models.DecimalField(max_digits=17, decimal_places=8, null=True, blank=True, help_text="주문 수량 (코인)")
+    limit_price = models.DecimalField(
+        max_digits=20, decimal_places=0, null=True, blank=True, help_text="주문 제한가 (KRW)"
+    )
 
     type = models.CharField(max_length=20, help_text="주문 유형 (예: MARKET)")
     side = models.CharField(max_length=10, help_text="BUY/SELL")
@@ -91,9 +90,6 @@ class Trading(TimeStampedModel):
     )
     average_fee_rate = models.DecimalField(
         max_digits=5, decimal_places=4, null=True, blank=True, help_text="평균 수수료율 (%)"
-    )
-    limit_price = models.DecimalField(
-        max_digits=20, decimal_places=0, null=True, blank=True, help_text="체결 가격 한도 (KRW)"
     )
     original_qty = models.DecimalField(
         max_digits=17, decimal_places=8, null=True, blank=True, help_text="최초 주문 수량 (코인)"

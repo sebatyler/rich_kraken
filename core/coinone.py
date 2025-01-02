@@ -2,7 +2,6 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 import uuid
 
 import requests
@@ -58,18 +57,37 @@ def get_ticker(ticker):
     return get_response(f"/public/v2/ticker_new/KRW/{ticker}", method="get", public=True)["tickers"][0]
 
 
+def _order(ticker, side, amount=None, quantity=None, limit_price=None):
+    payload = {
+        "access_token": ACCESS_TOKEN,
+        "quote_currency": "KRW",
+        "target_currency": ticker,
+        "type": "MARKET",
+        "side": side,
+    }
+    if side == "BUY":
+        if not amount:
+            raise ValueError("amount is required for buy order")
+
+        payload["amount"] = amount
+    elif side == "SELL":
+        if not quantity:
+            raise ValueError("quantity is required for sell order")
+
+        payload["qty"] = quantity
+
+    if limit_price:
+        payload["limit_price"] = limit_price
+
+    return get_response(action="/v2.1/order", payload=payload)
+
+
 def buy_ticker(ticker, amount_krw):
-    return get_response(
-        action="/v2.1/order",
-        payload={
-            "access_token": ACCESS_TOKEN,
-            "quote_currency": "KRW",
-            "target_currency": ticker,
-            "side": "BUY",
-            "type": "MARKET",
-            "amount": amount_krw,
-        },
-    )
+    return _order(ticker, "BUY", amount_krw)
+
+
+def sell_ticker(ticker, quantity, limit_price):
+    return _order(ticker, "SELL", quantity, limit_price)
 
 
 def get_order_detail(order_id, target_currency):
