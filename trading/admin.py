@@ -17,8 +17,7 @@ class TradingConfigAdmin(SimpleHistoryAdmin, ModelAdmin):
         "user",
         "is_active",
         "target_coins",
-        "min_amount",
-        "max_amount",
+        "min_trade_amount",
         "step_amount",
         "min_coins",
         "max_coins",
@@ -34,7 +33,7 @@ class TradingConfigAdmin(SimpleHistoryAdmin, ModelAdmin):
 
 @admin.register(Trading)
 class TradingAdmin(ModelAdmin):
-    list_display = ("id", "user", "coin", "amount", "type", "side", "price", "status", "created")
+    list_display = ("id", "user", "coin", "type", "side", "amount", "quantity", "price", "status", "created")
     list_filter = ("user", "coin", "type", "side", "status")
     list_select_related = ("user",)
     search_fields = ("user__username", "user__email", "coin")

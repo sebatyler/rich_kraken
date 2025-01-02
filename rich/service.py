@@ -36,10 +36,19 @@ class BaseStrippedModel(BaseModel):
         super().__init__(*args, **kwargs)
 
 
+class Recommendation(BaseStrippedModel):
+    action: str = Field(..., description="The action to take (BUY or SELL)")
+    symbol: str = Field(..., description="The symbol of the cryptocurrency")
+    amount: int | None = Field(default=None, description="The amount of the cryptocurrency to buy in KRW")
+    quantity: float | None = Field(default=None, description="The quantity of the cryptocurrency to sell")
+    limit_price: float | None = Field(default=None, description="The limit price for the order")
+    reason: str = Field(..., description="The reason for the recommendation")
+
+
 class MultiCryptoRecommendation(BaseStrippedModel):
     scratchpad: str = Field(..., description="The analysis scratchpad text")
     reasoning: str = Field(..., description="The reasoning text")
-    recommendations: list[dict] = Field(..., description="List of recommended cryptocurrencies and amounts")
+    recommendations: list[Recommendation] = Field(..., description="List of recommended cryptocurrency trades")
 
 
 def collect_crypto_data(symbol: str, start_date: str):
@@ -158,34 +167,73 @@ Indices data in USD in CSV
         if data["network_stats_csv"]:  # BTC인 경우
             kwargs[f"{symbol}_network_stats_csv"] = data["network_stats_csv"]
 
-    prompt = f"""You are an aggressive cryptocurrency investment advisor focusing on high-potential daily trading opportunities. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
+    krw_balance = int(float(balances["KRW"]["available"] or 0))
+    prompt = f"""You are an aggressive but risk-aware cryptocurrency trading advisor. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
 
-Investment amount rules:
-- Minimum amount: {trading_config.min_amount:,} KRW
-- Maximum amount: {trading_config.max_amount:,} KRW
-- Step amount: {trading_config.step_amount:,} KRW
-- Amount must be a multiple of step amount
-- Focus on coins showing strong momentum or potential reversal signals
-- Use higher amounts (near max) for strong setups with lower risk
-- Use medium amounts for good setups with moderate risk
-- Use lower amounts (near min) for higher risk opportunities
+Current account status:
+- KRW balance: {krw_balance:,} KRW
+- Minimum trade amount: {trading_config.min_trade_amount:,} KRW (to ensure fee efficiency)
 
-Number of recommendations:
-- Maximum coins to recommend: {trading_config.max_coins}
-- Minimum coins to recommend: {trading_config.min_coins} (0 means you can recommend no coins if no good opportunities)
+Trading rules:
+1. Number of recommendations:
+   - Minimum coins to recommend: {trading_config.min_coins} (0 means you can recommend no coins if no good opportunities)
+   - Maximum coins to recommend: {trading_config.max_coins}
+
+2. Buy amount rules:
+   - Minimum amount: {trading_config.min_trade_amount:,} KRW
+   - Step amount: {trading_config.step_amount:,} KRW
+   - Buy amount must be a multiple of step amount
+   - Never use more than 30% of available KRW balance for a single trade
+   - Total buy amount across all recommendations should not exceed 50% of KRW balance
+
+3. Fee impact:
+   - Each trade (buy or sell) costs 0.02% of the trading amount
+   - Round trip (buy + sell) total fee is 0.04%
+   - Minimum profit should exceed total fee (>0.04%) to be worthwhile
+   - Larger trades are relatively more fee-efficient
+   - Small price movements (<0.04%) are not actionable due to fees
+   - For a trade to be profitable:
+     * Price increase must exceed 0.04% for buy orders
+     * Price decrease must exceed 0.04% for sell orders
+     * Add safety margin of 0.02% to account for price movements
+     * Total required movement: at least 0.06% in favorable direction
+
+4. Risk management:
+   - Consider market volatility and trend strength
+   - Higher volatility requires smaller position sizes
+   - Strong trends allow for larger positions
+   - Diversify across multiple opportunities when possible
+   - More uncertain conditions require smaller trades
+   - Clear opportunities allow for larger trades
+   - Never risk more than 2-3% of total portfolio value on a single trade
 
 Your task:
 1. Analyze each cryptocurrency's data considering:
    - Current price and trading volume
-   - Price trends over the last 30 days
-   - Recent news impact and market sentiment
-   - Technical indicators and patterns
-   - Risk level and market volatility
+   - Price trends and technical indicators
+   - Recent news and market sentiment
+   - Risk level and volatility
+   - Current holdings and their performance
+   - Available KRW balance
+   - Fee impact on profitability
+   - Required price movement (>0.06%) to overcome fees
 
-2. Recommend {trading_config.min_coins}-{trading_config.max_coins} cryptocurrencies with the highest potential for gains
-   - If min_coins is 0, you can recommend no coins if you find no good opportunities
-   - Focus on coins showing strong momentum or potential reversal signals
-   - Investment amount should reflect both opportunity and risk
+2. Recommend {trading_config.min_coins}-{trading_config.max_coins} trading actions:
+   - Can recommend both buy and sell actions
+   - Consider the entire portfolio and market situation
+   - Suggest no trades if no good opportunities exist
+   - For buy orders:
+     * Amount must be at least min_trade_amount and must be a multiple of step_amount
+     * Amount should reflect conviction level and risk assessment
+     * Never exceed 30% of available KRW for a single trade
+     * Expected upside must exceed 0.06% to cover fees
+   - For sell orders:
+     * Specify quantity to sell
+     * Consider selling in portions if holding large amounts
+     * Expected downside must exceed 0.06% to cover fees
+     * Set limit_price slightly below current price (0.1-0.3% lower) to ensure execution while protecting from sudden drops
+   - All orders will be executed at market price
+   - Ensure potential profit justifies the fees
 
 The output MUST strictly follow this YAML format:
 ```yaml
@@ -196,58 +244,162 @@ reasoning: |
   [Write summary and reasoning here in plain text, no markdown or special characters]
 
 recommendations:
-  - symbol: "SYMBOL1"
-    amount: NUMBER1
-  - symbol: "SYMBOL2"
-    amount: NUMBER2
-```
-
-Example output:
-```yaml
-scratchpad: |
-  DOGE 분석:
-  현재가: 123.45 KRW (전일대비 -5%)
-  거래량: 최근 4시간 동안 200% 급증
-  모멘텀: RSI 과매도 구간, 반등 가능성
-  리스크: 변동성 높음, 단기 상승 여력 있음
-  투자의견: 반등 가능성 높으나 리스크 고려하여 중간 수준 투자
-
-  SOL 분석:
-  현재가: 456.78 KRW (전일대비 +3%)
-  거래량: 꾸준한 상승세, 전주 대비 80% 증가
-  모멘텀: 상승 추세 지속 중, MACD 상향 돌파
-  리스크: 안정적 상승세, 기술적 지표 양호
-  투자의견: 강한 상승 모멘텀과 낮은 리스크로 적극적 투자 권장
-
-reasoning: |
-  DOGE: 과매도 상태에서 거래량 급증하며 반등 신호. 변동성 위험 고려하여 중간 수준 투자
-  SOL: 안정적인 상승세와 기술적 지표 양호. 상승 모멘텀 강화로 적극적 투자 권장
-
-recommendations:
-  - symbol: "DOGE"
-    amount: 10000
-  - symbol: "SOL"
-    amount: 25000
+  - action: "BUY"    # or "SELL"
+    symbol: "BTC"
+    amount: 500000   # Amount in KRW for BUY (must be multiple of step_amount. int or null)
+    quantity: 0.5    # Amount of coins for SELL (float or null)
+    limit_price: 30300000  # For SELL: set 0.1-0.3% below current price to ensure execution while protecting from drops
+    reason: "Strong support at 30M with 2% upside potential, well above 0.06% fee threshold. Using 20% of available KRW due to clear opportunity."
 ```
 
 Critical format rules:
 1. scratchpad and reasoning must be plain text with no markdown or special characters
-2. recommendations must be a list of dictionaries with exact keys: 'symbol' and 'amount'
-3. symbol must be a string in quotes, amount must be a number without quotes
+2. recommendations must be a list of dictionaries with exact keys as shown in the example
+3. symbol must be a string in quotes, numeric values must be numbers without quotes
 4. Keep the exact YAML indentation as shown
 5. Do not add any extra fields or formatting
 
 Remember:
 1. Write analysis and reasoning in Korean
-2. Balance risk and reward when determining amounts
-3. Consider both technical and fundamental factors
-4. This analysis runs daily - focus on opportunities"""
+2. Consider both technical and fundamental factors
+3. This analysis runs daily - focus on opportunities
+4. Always explain position sizing in the reason field
+5. Be conservative with position sizes - prefer multiple smaller trades over few large ones
+6. Always consider the 0.06% minimum favorable price movement needed to overcome fees"""
 
     return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
 
 
-def buy_crypto():
-    """암호화폐 구매 프로세스를 실행합니다."""
+def send_trade_result(
+    symbol: str, action: str, amount: float, quantity: float, price: float, balances: dict, chat_id: str, reason: str
+):
+    """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
+    crypto_amount = float(balances[symbol]["available"])
+    crypto_value = crypto_amount * price
+    krw_amount = float(balances["KRW"]["available"])
+
+    price_msg = "{:,.0f}".format(price)
+    message_lines = [
+        f"{action}: {quantity:,.8f} {symbol} ({amount:,} KRW)",
+        f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
+        f"{symbol} price: {price_msg}KRW",
+    ]
+    if reason:
+        message_lines.append(reason)
+
+    send_message("\n".join(message_lines), chat_id=chat_id)
+
+
+def process_trade(
+    user,
+    symbol: str,
+    action: str,
+    amount: float,
+    quantity: float,
+    limit_price: float,
+    crypto_price: float,
+    crypto_balance: dict,
+    order_detail: dict,
+    chat_id: str,
+    reason: str,
+):
+    """거래를 처리하고 결과를 저장 및 전송합니다."""
+    order_data = order_detail["order"]
+    Trading.objects.create(
+        user=user,
+        order_id=order_data["order_id"],
+        coin=symbol,
+        amount=amount,
+        quantity=quantity,
+        limit_price=limit_price,
+        price=crypto_price,
+        type=order_data["type"],
+        side=order_data["side"],
+        status=order_data["status"],
+        fee=order_data["fee"],
+        order_detail=order_detail,
+    )
+
+    # current balance and value after order
+    balances = coinone.get_balances()
+    if action == "BUY":
+        traded_quantity = float(balances[symbol]["available"]) - float(crypto_balance.get("available") or 0)
+        traded_amount = amount
+    elif action == "SELL":
+        traded_quantity = float(crypto_balance.get("available") or 0) - float(balances[symbol]["available"])
+        traded_amount = traded_quantity * crypto_price
+    else:
+        raise ValueError(f"Invalid action: {action}")
+
+    send_trade_result(
+        symbol=symbol,
+        action=action,
+        amount=traded_amount,
+        quantity=traded_quantity,
+        price=crypto_price,
+        balances=balances,
+        chat_id=chat_id,
+        reason=reason,
+    )
+
+    return balances
+
+
+def execute_trade(
+    user,
+    recommendation: Recommendation,
+    crypto_data: dict,
+    crypto_balance: dict,
+    chat_id: str,
+) -> dict:
+    """거래를 실행하고 결과를 처리합니다."""
+    action = recommendation.action
+    symbol = recommendation.symbol
+    crypto_price = crypto_data["input_data"]["current_price"]
+
+    logging.info(f"{recommendation=}")
+
+    if settings.DEBUG:
+        return
+
+    if action == "BUY":
+        amount = recommendation.amount
+        if not amount:
+            raise ValueError("amount is required for buy order")
+
+        r = coinone.buy_ticker(symbol, amount)
+        logging.info(f"buy_ticker: {r}")
+    elif action == "SELL":
+        quantity = recommendation.quantity
+        limit_price = recommendation.limit_price
+        if not quantity:
+            raise ValueError("quantity is required for sell order")
+
+        r = coinone.sell_ticker(symbol, quantity, limit_price)
+        logging.info(f"sell_ticker: {r}")
+    else:
+        raise ValueError(f"Invalid action: {action}")
+
+    order_detail = coinone.get_order_detail(r["order_id"], symbol)
+    logging.info(f"order_detail: {order_detail}")
+
+    return process_trade(
+        user=user,
+        symbol=symbol,
+        action=action,
+        amount=recommendation.amount,
+        quantity=recommendation.quantity,
+        limit_price=recommendation.limit_price,
+        crypto_price=crypto_price,
+        crypto_balance=crypto_balance,
+        order_detail=order_detail,
+        chat_id=chat_id,
+        reason=recommendation.reason,
+    )
+
+
+def auto_trading():
+    """암호화폐 매매 프로세스를 실행합니다."""
     # 오늘 날짜와 한 달 전 날짜 설정
     end_date = timezone.localdate()
     start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -315,58 +467,21 @@ def buy_crypto():
                 is_markdown=True,
             )
 
-            # 추천받은 코인 구매
+            # 추천받은 거래 실행
             for recommendation in result.recommendations:
-                symbol = recommendation["symbol"]
-                amount = recommendation["amount"]
-
-                if amount == 0:
-                    continue
-
+                symbol = recommendation.symbol
                 crypto_data = user_crypto_data[symbol]
-                crypto_price = crypto_data["input_data"]["current_price"]
                 crypto_balance = balances[symbol]
 
-                # buy crypto
-                logging.info(f"{symbol} {crypto_price=}, {amount=}")
-
-                if not settings.DEBUG:
-                    r = coinone.buy_ticker(symbol, amount)
-                    logging.info(f"buy_ticker: {r}")
-
-                    order_id = r["order_id"]
-                    order_detail = coinone.get_order_detail(order_id, symbol)
-                    logging.info(f"order_detail: {order_detail}")
-
-                    order_data = order_detail["order"]
-                    Trading.objects.create(
-                        user=config.user,
-                        order_id=order_id,
-                        coin=symbol,
-                        amount=amount,
-                        price=crypto_price,
-                        type=order_data["type"],
-                        side=order_data["side"],
-                        status=order_data["status"],
-                        fee=order_data["fee"],
-                        order_detail=order_detail,
-                    )
-
-                # current balance and value after order
-                balances = coinone.get_balances()
-                crypto_amount = float(balances[symbol]["available"])
-                crypto_value = crypto_amount * crypto_price
-                krw_amount = float(balances["KRW"]["available"])
-                bought_crypto = crypto_amount - float(crypto_balance.get("available") or 0)
-
-                price_msg = "{:,.0f}".format(crypto_price)
-                message_lines = [
-                    f"Buy: {bought_crypto:,.8f} {symbol} ({amount:,} KRW)",
-                    f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
-                    f"{symbol} price: {price_msg}KRW",
-                ]
-
-                send_message("\n".join(message_lines), chat_id=chat_id)
+                new_balances = execute_trade(
+                    user=config.user,
+                    recommendation=recommendation,
+                    crypto_data=crypto_data,
+                    crypto_balance=crypto_balance,
+                    chat_id=chat_id,
+                )
+                if new_balances:
+                    balances = new_balances
 
         except Exception as e:
             logging.exception(f"Error processing user {config.user}: {e}")

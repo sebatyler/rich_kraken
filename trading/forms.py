@@ -34,12 +34,14 @@ class TradingConfigForm(forms.ModelForm):
             "step_amount",
             "min_coins",
             "max_coins",
+            "min_trade_amount",
             "is_active",
         ]
         widgets = {
             "min_amount": amount_widget,
             "max_amount": amount_widget,
             "step_amount": amount_widget,
+            "min_trade_amount": amount_widget,
             "min_coins": forms.NumberInput(
                 attrs={
                     "class": coin_widget_class,

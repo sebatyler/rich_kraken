@@ -70,10 +70,10 @@
             {# 투자금액 설정 #}
             <div>
               <div class="border-b border-gray-200 pb-2">
-                <h4 class="text-base font-semibold text-gray-900">매수금액 설정</h4>
+                <h4 class="text-base font-semibold text-gray-900">매매금액 설정</h4>
               </div>
-              <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
-                {% for field in [form.min_amount, form.max_amount, form.step_amount] %}
+              <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                {% for field in [form.min_trade_amount, form.step_amount, form.min_amount, form.max_amount] %}
                 <div>
                   <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
                     {{ field.label }}
