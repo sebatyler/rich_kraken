@@ -232,16 +232,21 @@ Your task:
      * Consider selling in portions if holding large amounts
      * Expected downside must exceed 0.06% to cover fees
      * Set limit_price slightly below current price (0.1-0.3% lower) to ensure execution while protecting from sudden drops
-   - All orders will be executed at market price
    - Ensure potential profit justifies the fees
+
+3. Response format requirements:
+   - Write analysis and reasoning in Korean
+   - Keep the total length of scratchpad and reasoning under 4000 characters
+   - Focus on key points and be concise
+   - Ensure YAML format is strictly followed
 
 The output MUST strictly follow this YAML format:
 ```yaml
 scratchpad: |
-  [Write detailed analysis here in plain text, no markdown or special characters]
+  [Brief technical analysis in Korean, focusing on key points. Keep it under 2000 characters]
 
 reasoning: |
-  [Write summary and reasoning here in plain text, no markdown or special characters]
+  [Brief trading strategy explanation in Korean. Keep it under 2000 characters]
 
 recommendations:
   - action: "BUY"    # or "SELL"
@@ -253,11 +258,12 @@ recommendations:
 ```
 
 Critical format rules:
-1. scratchpad and reasoning must be plain text with no markdown or special characters
+1. scratchpad and reasoning MUST be plain text strings with no special formatting
 2. recommendations must be a list of dictionaries with exact keys as shown in the example
 3. symbol must be a string in quotes, numeric values must be numbers without quotes
 4. Keep the exact YAML indentation as shown
 5. Do not add any extra fields or formatting
+6. Total length of scratchpad and reasoning must be under 4000 characters
 
 Remember:
 1. Write analysis and reasoning in Korean
