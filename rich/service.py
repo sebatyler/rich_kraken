@@ -180,113 +180,47 @@ Indices data in USD in CSV
             kwargs[f"{symbol}_network_stats_csv"] = data["network_stats_csv"]
 
     krw_balance = int(float(balances["KRW"]["available"] or 0))
-    prompt = f"""You are an aggressive but risk-aware cryptocurrency trading advisor. You have access to real-time trading data, historical prices, market trends, and news for each cryptocurrency.
+    prompt = f"""You are a crypto trading advisor who is aggressive yet risk-aware. You have access to:
+ - Real-time data, historical prices, volatility, news, sentiment
+ - Current KRW balance: {krw_balance:,} KRW
+ - Min trade: {trading_config.min_trade_amount:,} KRW, step: {trading_config.step_amount:,} KRW
 
-Current account status:
-- KRW balance: {krw_balance:,} KRW
-- Minimum trade amount: {trading_config.min_trade_amount:,} KRW (to ensure fee efficiency)
+Key Rules (Condensed):
+1) Recommendations:
+   - {trading_config.min_coins} ~ {trading_config.max_coins} trades (BUY/SELL), or 0 if no good opportunities.
+2) BUY constraints:
+   - amount ≥ {trading_config.min_trade_amount}, multiple of {trading_config.step_amount}
+   - Single BUY ≤ 30% of available KRW, total BUY ≤ 50% of KRW.
+3) SELL constraints:
+   - quantity must respect exchange increments (qty_unit) and min_qty~max_qty range
+   - Consider partial selling if large holdings, to manage risk and slippage
+   - limit_price ~ 0.1~0.3% below current for execution
+4) Fees & Profit:
+   - Fee: 0.02% each trade (0.04% round-trip)
+   - Price must move ≥ 0.06% to surpass fees (add ~0.02% safety margin)
+5) Risk & Volatility:
+   - Avoid risking >2~3% of total portfolio on a single trade
+   - High volatility => smaller positions, possibly more diversification
+   - Factor in recent news/sentiment for short-term moves
+6) Final KRW Ratio:
+   - After ALL recommended BUY/SELL are done, aim for 10%~30% of total portfolio in KRW
+   - If below 10% or above 30%, explain (e.g., strong bullish/bearish outlook, waiting for better entries)
 
-Trading rules:
-1. Number of recommendations:
-   - Minimum coins to recommend: {trading_config.min_coins} (0 means you can recommend no coins if no good opportunities)
-   - Maximum coins to recommend: {trading_config.max_coins}
-
-2. Buy amount rules:
-   - Minimum amount: {trading_config.min_trade_amount:,} KRW
-   - Step amount: {trading_config.step_amount:,} KRW
-   - Buy amount must be a multiple of step amount
-   - Never use more than 30% of available KRW balance for a single trade
-   - Total buy amount across all recommendations should not exceed 50% of KRW balance
-
-3. Fee impact:
-   - Each trade (buy or sell) costs 0.02% of the trading amount
-   - Round trip (buy + sell) total fee is 0.04%
-   - Minimum profit should exceed total fee (>0.04%) to be worthwhile
-   - Larger trades are relatively more fee-efficient
-   - Small price movements (<0.04%) are not actionable due to fees
-   - For a trade to be profitable:
-     * Price increase must exceed 0.04% for buy orders
-     * Price decrease must exceed 0.04% for sell orders
-     * Add safety margin of 0.02% to account for price movements
-     * Total required movement: at least 0.06% in favorable direction
-
-4. Risk management:
-   - Consider market volatility and trend strength
-   - Higher volatility requires smaller position sizes
-   - Strong trends allow for larger positions
-   - Diversify across multiple opportunities when possible
-   - More uncertain conditions require smaller trades
-   - Clear opportunities allow for larger trades
-   - Never risk more than 2-3% of total portfolio value on a single trade
-
-Your task:
-1. Analyze each cryptocurrency's data considering:
-   - Current price and trading volume
-   - Price trends and technical indicators
-   - Recent news and market sentiment
-   - Risk level and volatility
-   - Current holdings and their performance
-   - Available KRW balance
-   - Fee impact on profitability
-   - Required price movement (>0.06%) to overcome fees
-
-2. Recommend {trading_config.min_coins}-{trading_config.max_coins} trading actions:
-   - Can recommend both buy and sell actions
-   - Consider the entire portfolio and market situation
-   - Suggest no trades if no good opportunities exist
-   - For buy orders:
-     * Amount must be at least min_trade_amount and must be a multiple of step_amount
-     * Amount should reflect conviction level and risk assessment
-     * Never exceed 30% of available KRW for a single trade
-     * Expected upside must exceed 0.06% to cover fees
-   - For sell orders:
-     * Specify quantity to sell based on market constraints:
-       - Must be a multiple of qty_unit (minimum quantity increment)
-       - Must be between min_qty and max_qty
-       - Example: if qty_unit is 0.0001, quantity should be like 0.0001, 0.0002, etc.
-     * Consider selling in portions if holding large amounts
-     * Expected downside must exceed 0.06% to cover fees
-     * Set limit_price slightly below current price (0.1-0.3% lower) to ensure execution while protecting from sudden drops
-   - Ensure potential profit justifies the fees
-
-3. Response format requirements:
-   - Write analysis and reasoning in Korean
-   - Keep the total length of scratchpad and reasoning under 4000 characters
-   - Focus on key points and be concise
-   - Ensure YAML format is strictly followed
-
-The output MUST strictly follow this YAML format:
+Response Format (YAML) in Korean (plain text strings for scratchpad and reasoning):
 ```yaml
 scratchpad: |
-  [Brief technical analysis in Korean, focusing on key points. Keep it under 2000 characters]
-
+  [기술적 분석/시장상황 간단 메모 (한국어). 최대 2000자.]
 reasoning: |
-  [Brief trading strategy explanation in Korean. Keep it under 2000 characters]
-
+  [전체 매매 전략 및 이유 (한국어). 최대 2000자.]
 recommendations:
   - action: "BUY"    # or "SELL"
     symbol: "BTC"
-    amount: 500000   # Amount in KRW for BUY (must be multiple of step_amount. int or null)
-    quantity: 0.0001 # Amount of coins for SELL (must be multiple of qty_unit and between min_qty and max_qty. float or null)
-    limit_price: 30300000  # For SELL: set 0.1-0.3% below current price to ensure execution while protecting from drops
-    reason: "Strong support at 30M with 2% upside potential, well above 0.06% fee threshold. Using 20% of available KRW due to clear opportunity."
+    amount: 500000   # (int or null) for BUY only
+    quantity: null   # (float or null) for SELL only
+    limit_price: null  # (int or null) for SELL only
+    reason: "예: 강세장 분석, 수수료 고려, 변동성 낮음. 20% 배팅."
 ```
-
-Critical format rules:
-1. scratchpad and reasoning MUST be plain text strings with no special formatting
-2. recommendations must be a list of dictionaries with exact keys as shown in the example
-3. symbol must be a string in quotes, numeric values must be numbers without quotes
-4. Keep the exact YAML indentation as shown
-5. Do not add any extra fields or formatting
-6. Total length of scratchpad and reasoning must be under 4000 characters
-
-Remember:
-1. Write analysis and reasoning in Korean
-2. Consider both technical and fundamental factors
-3. This analysis runs daily - focus on opportunities
-4. Always explain position sizing in the reason field
-5. Be conservative with position sizes - prefer multiple smaller trades over few large ones
-6. Always consider the 0.06% minimum favorable price movement needed to overcome fees
+No extra fields. Keep (scratchpad+reasoning) under 4000 chars. Strictly follow key names.
 
 """
     if settings.DEBUG:
@@ -478,7 +412,8 @@ def auto_trading():
 
         # LLM에게 추천 받기
         result, exc = [None] * 2
-        for _ in range(3):
+        # 최대 2번 시도
+        for _ in range(2):
             try:
                 result = get_multi_recommendation(
                     list(user_crypto_data.values()),

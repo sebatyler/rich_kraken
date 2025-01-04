@@ -16,18 +16,26 @@ chat_anthropic = ChatAnthropic(
     max_retries=0,
 )
 
-chat_gemini = ChatGoogleGenerativeAI(
-    temperature=0.7,
-    top_p=0.95,
-    top_k=40,
-    model="gemini-exp-1206",
-    google_api_key=os.getenv("GEMINI_API_KEY"),
-    timeout=90,
-    max_retries=0,
-    max_tokens=1_000_000,
-)
+gemini_models = [
+    "gemini-exp-1206",
+    "gemini-2.0-flash-exp",
+    # "gemini-2.0-flash-thinking-exp-1219",
+]
 
-llm = chat_gemini
+chat_gemini_models = [
+    ChatGoogleGenerativeAI(
+        temperature=0.7,
+        top_p=0.95,
+        top_k=40,
+        model=model,
+        google_api_key=os.getenv("GEMINI_API_KEY"),
+        timeout=90,
+        max_retries=0,
+    )
+    for model in gemini_models
+]
+
+llm = chat_gemini_models[0].with_fallbacks(chat_gemini_models[1:])
 
 
 def invoke_llm(model, prompt, *args, **kwargs):
