@@ -97,7 +97,11 @@ def collect_crypto_data(symbol: str, start_date: str):
 
 
 def get_multi_recommendation(
-    crypto_data_list: list[dict], indices_csv: str, balances: dict[str, dict], trading_config: TradingConfig
+    crypto_data_list: list[dict],
+    indices_csv: str,
+    balances: dict[str, dict],
+    markets: dict[str, dict],
+    trading_config: TradingConfig,
 ) -> MultiCryptoRecommendation:
     """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
     # 각 코인별 데이터를 하나의 문자열로 조합
@@ -109,6 +113,10 @@ def get_multi_recommendation(
 User's current balance data in KRW in JSON
 ```json
 {symbol}_balance_json
+```
+Market data in JSON
+```json
+{symbol}_market_json
 ```
 Recent trading data in KRW in JSON (including user's current balance)
 ```json
@@ -132,7 +140,7 @@ News in CSV
 {symbol}_crypto_news_csv
 ```"""
         description = re.sub(
-            rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv|balance_json))",
+            rf"^({symbol}_(json_data|crypto_data_csv|network_stats_csv|crypto_news_csv|balance_json|market_json))",
             r"{\1}",
             description,
             flags=re.MULTILINE,
@@ -160,6 +168,7 @@ Indices data in USD in CSV
             {
                 f"{symbol}_balance_json": json.dumps(balance),
                 f"{symbol}_json_data": json.dumps(data["input_data"]),
+                f"{symbol}_market_json": json.dumps(markets[symbol]),
                 f"{symbol}_crypto_data_csv": data["crypto_data_csv"],
                 f"{symbol}_crypto_news_csv": data["crypto_news_csv"],
             }
@@ -228,7 +237,10 @@ Your task:
      * Never exceed 30% of available KRW for a single trade
      * Expected upside must exceed 0.06% to cover fees
    - For sell orders:
-     * Specify quantity to sell
+     * Specify quantity to sell based on market constraints:
+       - Must be a multiple of qty_unit (minimum quantity increment)
+       - Must be between min_qty and max_qty
+       - Example: if qty_unit is 0.0001, quantity should be like 0.0001, 0.0002, etc.
      * Consider selling in portions if holding large amounts
      * Expected downside must exceed 0.06% to cover fees
      * Set limit_price slightly below current price (0.1-0.3% lower) to ensure execution while protecting from sudden drops
@@ -252,7 +264,7 @@ recommendations:
   - action: "BUY"    # or "SELL"
     symbol: "BTC"
     amount: 500000   # Amount in KRW for BUY (must be multiple of step_amount. int or null)
-    quantity: 0.5    # Amount of coins for SELL (float or null)
+    quantity: 0.0001 # Amount of coins for SELL (must be multiple of qty_unit and between min_qty and max_qty. float or null)
     limit_price: 30300000  # For SELL: set 0.1-0.3% below current price to ensure execution while protecting from drops
     reason: "Strong support at 30M with 2% upside potential, well above 0.06% fee threshold. Using 20% of available KRW due to clear opportunity."
 ```
@@ -373,20 +385,23 @@ def execute_trade(
         if not amount:
             raise ValueError("amount is required for buy order")
 
-        r = coinone.buy_ticker(symbol, amount)
-        logging.info(f"buy_ticker: {r}")
+        order = coinone.buy_ticker(symbol, amount)
     elif action == "SELL":
         quantity = recommendation.quantity
         limit_price = recommendation.limit_price
         if not quantity:
             raise ValueError("quantity is required for sell order")
 
-        r = coinone.sell_ticker(symbol, quantity, limit_price)
-        logging.info(f"sell_ticker: {r}")
+        order = coinone.sell_ticker(symbol, quantity, limit_price)
     else:
         raise ValueError(f"Invalid action: {action}")
 
-    order_detail = coinone.get_order_detail(r["order_id"], symbol)
+    logging.info(f"{action} order: {order}")
+
+    if not order.order_id:
+        raise ValueError(f"Failed to execute {action} order: {order}")
+
+    order_detail = coinone.get_order_detail(order.order_id, symbol)
     logging.info(f"order_detail: {order_detail}")
 
     return process_trade(
@@ -413,6 +428,9 @@ def auto_trading():
     # 시장 지표 데이터 가져오기
     indices_data_csv = crypto.get_market_indices(start_date)
 
+    # 전체 종목 정보 가져오기 (qty_unit 정보 포함)
+    markets = coinone.get_markets()
+
     # 활성화된 트레이딩 설정에서 모든 target_coins를 가져와서 중복 제거
     active_configs = TradingConfig.objects.filter(is_active=True)
     target_coins = set()
@@ -434,51 +452,53 @@ def auto_trading():
         config: TradingConfig = config
         chat_id = config.telegram_chat_id
 
-        try:
-            # initialize coinone
-            coinone.init(
-                access_key=config.coinone_access_key,
-                secret_key=config.coinone_secret_key,
-            )
+        # initialize coinone
+        coinone.init(
+            access_key=config.coinone_access_key,
+            secret_key=config.coinone_secret_key,
+        )
 
-            balances = coinone.get_balances()
+        balances = coinone.get_balances()
 
-            # 해당 유저의 target_coins에 대한 데이터만 필터링
-            user_crypto_data = {
-                symbol: crypto_data_dict[symbol] for symbol in config.target_coins if symbol in crypto_data_dict
-            }
+        # 해당 유저의 target_coins에 대한 데이터만 필터링
+        user_crypto_data = {
+            symbol: crypto_data_dict[symbol] for symbol in config.target_coins if symbol in crypto_data_dict
+        }
 
-            # LLM에게 추천 받기
-            result, exc = [None] * 2
-            for _ in range(3):
-                try:
-                    result = get_multi_recommendation(
-                        list(user_crypto_data.values()),
-                        indices_data_csv,
-                        balances,
-                        config,
-                    )
-                    break
-                except Exception as e:
-                    logging.warning(e)
-                    exc = e
+        # LLM에게 추천 받기
+        result, exc = [None] * 2
+        for _ in range(3):
+            try:
+                result = get_multi_recommendation(
+                    list(user_crypto_data.values()),
+                    indices_data_csv,
+                    balances,
+                    markets,
+                    config,
+                )
+                break
+            except Exception as e:
+                logging.warning(e)
+                exc = e
 
-            if not result and exc:
-                raise exc
+        if not result and exc:
+            logging.exception(f"Error getting multi recommendation for {config.user}: {exc}")
+            continue
 
-            # 분석 결과 전송
-            send_message(
-                f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
-                chat_id=chat_id,
-                is_markdown=True,
-            )
+        # 분석 결과 전송
+        send_message(
+            f"```\n코인 분석:\n{result.scratchpad}\n\n{result.reasoning}```",
+            chat_id=chat_id,
+            is_markdown=True,
+        )
 
-            # 추천받은 거래 실행
-            for recommendation in result.recommendations:
-                symbol = recommendation.symbol
-                crypto_data = user_crypto_data[symbol]
-                crypto_balance = balances[symbol]
+        # 추천받은 거래 실행
+        for recommendation in result.recommendations:
+            symbol = recommendation.symbol
+            crypto_data = user_crypto_data[symbol]
+            crypto_balance = balances[symbol]
 
+            try:
                 new_balances = execute_trade(
                     user=config.user,
                     recommendation=recommendation,
@@ -488,9 +508,8 @@ def auto_trading():
                 )
                 if new_balances:
                     balances = new_balances
-
-        except Exception as e:
-            logging.exception(f"Error processing user {config.user}: {e}")
+            except Exception as e:
+                logging.exception(f"Error executing trade for {symbol}: {e}")
 
 
 def fetch_crypto_listings():

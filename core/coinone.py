@@ -3,8 +3,10 @@ import hashlib
 import hmac
 import json
 import uuid
+from typing import Optional
 
 import requests
+from pydantic import BaseModel
 
 ACCESS_TOKEN = None
 SECRET_KEY = None
@@ -30,7 +32,7 @@ def get_signature(encoded_payload):
 
 
 def get_response(action, method="post", payload=None, public=False):
-    url = f"https://api.coinone.co.kr/{action}"
+    url = f"https://api.coinone.co.kr/{action.lstrip('/')}"
 
     headers = {"Accept": "application/json"}
     if not public:
@@ -57,7 +59,14 @@ def get_ticker(ticker):
     return get_response(f"/public/v2/ticker_new/KRW/{ticker}", method="get", public=True)["tickers"][0]
 
 
-def _order(ticker, side, amount=None, quantity=None, limit_price=None):
+class OrderResponse(BaseModel):
+    result: str
+    error_code: str
+    error_msg: Optional[str]
+    order_id: Optional[str]
+
+
+def _order(ticker, side, amount=None, quantity=None, limit_price=None) -> OrderResponse:
     payload = {
         "access_token": ACCESS_TOKEN,
         "quote_currency": "KRW",
@@ -79,14 +88,14 @@ def _order(ticker, side, amount=None, quantity=None, limit_price=None):
     if limit_price:
         payload["limit_price"] = limit_price
 
-    return get_response(action="/v2.1/order", payload=payload)
+    return OrderResponse(**get_response(action="/v2.1/order", payload=payload))
 
 
-def buy_ticker(ticker, amount_krw):
+def buy_ticker(ticker, amount_krw) -> OrderResponse:
     return _order(ticker, "BUY", amount_krw)
 
 
-def sell_ticker(ticker, quantity, limit_price):
+def sell_ticker(ticker, quantity, limit_price) -> OrderResponse:
     return _order(ticker, "SELL", quantity, limit_price)
 
 
@@ -100,3 +109,8 @@ def get_order_detail(order_id, target_currency):
             "target_currency": target_currency,
         },
     )
+
+
+def get_markets():
+    data = get_response(action="/public/v2/markets/KRW", method="get", public=True)
+    return {market["target_currency"]: market for market in data["markets"]}
