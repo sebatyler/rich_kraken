@@ -23,7 +23,8 @@ chat_gemini = ChatGoogleGenerativeAI(
     model="gemini-exp-1206",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     timeout=90,
-    max_retries=2,
+    max_retries=0,
+    max_tokens=1_000_000,
 )
 
 llm = chat_gemini

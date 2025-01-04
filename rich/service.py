@@ -118,7 +118,7 @@ Market data in JSON
 ```json
 {symbol}_market_json
 ```
-Recent trading data in KRW in JSON (including user's current balance)
+Recent trading data in KRW in JSON
 ```json
 {symbol}_json_data
 ```
@@ -164,11 +164,14 @@ Indices data in USD in CSV
     for data in crypto_data_list:
         symbol = data["symbol"]
         balance = balances.get(symbol, {})
+        market = markets.get(symbol, {})
+        # 매도 시 필요한 정보만 추출
+        market = {k: v for k, v in market.items() if "qty" in k}
         kwargs.update(
             {
                 f"{symbol}_balance_json": json.dumps(balance),
                 f"{symbol}_json_data": json.dumps(data["input_data"]),
-                f"{symbol}_market_json": json.dumps(markets[symbol]),
+                f"{symbol}_market_json": json.dumps(market),
                 f"{symbol}_crypto_data_csv": data["crypto_data_csv"],
                 f"{symbol}_crypto_news_csv": data["crypto_news_csv"],
             }
@@ -283,7 +286,14 @@ Remember:
 3. This analysis runs daily - focus on opportunities
 4. Always explain position sizing in the reason field
 5. Be conservative with position sizes - prefer multiple smaller trades over few large ones
-6. Always consider the 0.06% minimum favorable price movement needed to overcome fees"""
+6. Always consider the 0.06% minimum favorable price movement needed to overcome fees
+
+"""
+    if settings.DEBUG:
+        with open(f"tmp/{trading_config.user.email.split('@')[0]}.txt", "w") as f:
+            f.write(prompt)
+            f.write(all_data)
+            f.write(json.dumps(kwargs))
 
     return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
 
@@ -438,10 +448,11 @@ def auto_trading():
         target_coins.update(config.target_coins)
 
     # 모든 코인의 데이터 수집
+    news_start_date = (end_date - timedelta(days=7)).strftime("%Y-%m-%d")
     crypto_data_dict = {}
     for symbol in target_coins:
         try:
-            crypto_data = collect_crypto_data(symbol, start_date)
+            crypto_data = collect_crypto_data(symbol, news_start_date)
             crypto_data_dict[symbol] = crypto_data
         except Exception as e:
             logging.error(f"Failed to collect data for {symbol}: {e}")
