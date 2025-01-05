@@ -35,16 +35,18 @@ chat_gemini_models = [
     for model in gemini_models
 ]
 
-llm = chat_gemini_models[0].with_fallbacks(chat_gemini_models[1:])
+llm_primary = chat_gemini_models[0].with_fallbacks(chat_gemini_models[1:])
+llm_fallback = chat_gemini_models[1]
 
 
-def invoke_llm(model, prompt, *args, **kwargs):
+def invoke_llm(model, prompt, *args, with_fallback=False, **kwargs):
     chat_prompt = ChatPromptTemplate.from_messages(
         [
             SystemMessage(content=prompt),
             *[("human", arg) for arg in args],
         ]
     )
+    llm = llm_fallback if with_fallback else llm_primary
 
     parser = YamlOutputParser(pydantic_object=model)
 
@@ -53,5 +55,5 @@ def invoke_llm(model, prompt, *args, **kwargs):
 
     # Invoke the runnable to get structured output
     result = chain.invoke(kwargs)
-    logging.info(f"{result=}")
+    logging.info(f"{with_fallback=}: {result=}")
     return result
