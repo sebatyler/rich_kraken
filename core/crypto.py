@@ -57,10 +57,10 @@ def get_network_stats():
     return response.json()
 
 
-def fetch_news(from_date, query):
+def fetch_news(from_date, query, page_size=10):
     """뉴스 API를 통해 암호화폐 관련 뉴스를 가져옵니다."""
     url = "https://newsapi.org/v2/everything"
-    parameters = {"q": query, "from": from_date, "pageSize": 10}
+    parameters = {"q": query, "from": from_date, "pageSize": page_size}
     response = requests.get(
         url,
         params=parameters,
