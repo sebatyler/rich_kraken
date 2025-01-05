@@ -103,6 +103,7 @@ def get_multi_recommendation(
     balances: dict[str, dict],
     markets: dict[str, dict],
     trading_config: TradingConfig,
+    with_fallback: bool = False,
 ) -> MultiCryptoRecommendation:
     """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
     # 각 코인별 데이터를 하나의 문자열로 조합
@@ -207,7 +208,7 @@ Key Rules (Condensed):
    - After ALL recommended BUY/SELL are done, aim for 10%~30% of total portfolio in KRW
    - If below 10% or above 30%, explain (e.g., strong bullish/bearish outlook, waiting for better entries)
 
-Response Format (YAML) in Korean (plain text strings for scratchpad and reasoning):
+Output must be valid YAML with these sections:
 ```yaml
 scratchpad: |
   [기술적 분석/시장상황 간단 메모 (한국어). 최대 2000자.]
@@ -221,7 +222,12 @@ recommendations:
     limit_price: null  # (int or null) for SELL only
     reason: "예: 강세장 분석, 수수료 고려, 변동성 낮음. 20% 배팅."
 ```
-No extra fields. Keep (scratchpad+reasoning) under 4000 chars. Strictly follow key names.
+Rules:
+	1.	Strictly follow the YAML structure above.
+	2.	scratchpad and reasoning must be multiline strings (|) with consistent indentation.
+	3.	Do NOT place any text at the very first column of each line inside scratchpad/reasoning. (Use indentation or a dash - )
+	4.	Keep total length of scratchpad + reasoning < 4000 chars.
+	5.	No extra fields. No extra lines outside the YAML.
 
 """
     if settings.DEBUG:
@@ -230,7 +236,7 @@ No extra fields. Keep (scratchpad+reasoning) under 4000 chars. Strictly follow k
             f.write(all_data)
             f.write(json.dumps(kwargs))
 
-    return invoke_llm(MultiCryptoRecommendation, prompt, all_data, **kwargs)
+    return invoke_llm(MultiCryptoRecommendation, prompt, all_data, with_fallback=with_fallback, **kwargs)
 
 
 def send_trade_result(
@@ -414,7 +420,7 @@ def auto_trading():
         # LLM에게 추천 받기
         result, exc = [None] * 2
         # 최대 2번 시도
-        for _ in range(2):
+        for i in range(2):
             try:
                 result = get_multi_recommendation(
                     list(user_crypto_data.values()),
@@ -422,6 +428,7 @@ def auto_trading():
                     balances,
                     markets,
                     config,
+                    with_fallback=i > 0,
                 )
                 break
             except Exception as e:

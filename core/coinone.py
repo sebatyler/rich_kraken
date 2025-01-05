@@ -44,7 +44,8 @@ def get_response(action, method="post", payload=None, public=False):
             }
         )
 
-    return requests.request(method, url, headers=headers, json=payload).json()
+    response = requests.request(method, url, headers=headers, json=payload)
+    return response.json()
 
 
 def get_balances():
