@@ -10,7 +10,6 @@ import jwt
 import requests
 
 from core.utils import dict_omit
-from core.utils import dict_pick
 
 access_key = os.getenv("UPBIT_ACCESS_KEY")
 secret_key = os.getenv("UPBIT_SECRET_KEY")

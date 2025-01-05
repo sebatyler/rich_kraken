@@ -25,7 +25,6 @@ from core import crypto
 from core import upbit
 from core import utils
 from core.llm import invoke_llm
-from core.llm import invoke_llm_thinking_mode
 from core.telegram import send_message
 from trading.models import Trading
 from trading.models import TradingConfig
@@ -54,9 +53,7 @@ class MultiCryptoRecommendation(BaseStrippedModel):
     recommendations: list[Recommendation] = Field(..., description="List of recommended cryptocurrency trades")
 
 
-def collect_crypto_data(
-    symbol: str, start_date: str, news_count: int = 10, from_upbit: bool = False, balance: dict = None
-):
+def collect_crypto_data(symbol: str, start_date: str, news_count: int = 10, from_upbit: bool = False):
     """특정 암호화폐의 모든 관련 데이터를 수집합니다."""
     if from_upbit:
         tickers = upbit.get_ticker(symbol)
@@ -252,7 +249,7 @@ Rules:
 
 
 def get_rebalance_recommendation(
-    crypto_data_list: list[dict], indices_csv: str, balances: dict[str, dict], total_value: int
+    crypto_data_list: list[dict], indices_csv: str, balances: dict[str, dict], total_coin_value: int
 ):
     """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
     # 각 코인별 데이터를 하나의 문자열로 조합
@@ -326,8 +323,8 @@ Indices data in USD in CSV
     prompt = f"""You are a cryptocurrency portfolio rebalancing expert with exceptional risk management skills. You have access to:
  - Real-time market data, historical prices, volatility, news, and market sentiment
  - KRW balance: {krw_balance:,} KRW
- - Total coin value: {total_value:,} KRW
- - Total portfolio value: {total_value + krw_balance:,} KRW
+ - Total coin value: {total_coin_value:,} KRW
+ - Total portfolio value: {total_coin_value + krw_balance:,} KRW
 
 Portfolio Value Calculation (CRITICAL - FOLLOW EXACTLY):
 1. Calculate weights:
@@ -653,15 +650,15 @@ def rebalance_portfolio():
     # 모든 코인의 데이터 수집
     news_start_date = (end_date - timedelta(days=7)).strftime("%Y-%m-%d")
     crypto_data_dict = {}
-    total_value = 0
+    total_coin_value = 0
     for symbol in target_coins:
         try:
             crypto_data = collect_crypto_data(symbol, news_start_date, from_upbit=True)
-            balance = balances.get(symbol, {})
+            balance = balances.get(symbol)
             if balance:
                 current_value = float(balance.get("quantity", 0)) * crypto_data["input_data"]["current_price"]
                 crypto_data["input_data"]["current_value"] = current_value
-                total_value += current_value
+                total_coin_value += current_value
             crypto_data_dict[symbol] = crypto_data
         except Exception as e:
             logging.exception(f"Failed to collect data for {symbol}: {e}")
@@ -682,7 +679,7 @@ def rebalance_portfolio():
                 list(crypto_data.values()),
                 indices_data_csv,
                 balances,
-                int(total_value),
+                int(total_coin_value),
             )
             break
         except Exception as e:
