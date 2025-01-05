@@ -22,8 +22,10 @@ from django.utils import timezone
 
 from core import coinone
 from core import crypto
+from core import upbit
 from core import utils
 from core.llm import invoke_llm
+from core.llm import invoke_llm_thinking_mode
 from core.telegram import send_message
 from trading.models import Trading
 from trading.models import TradingConfig
@@ -52,10 +54,17 @@ class MultiCryptoRecommendation(BaseStrippedModel):
     recommendations: list[Recommendation] = Field(..., description="List of recommended cryptocurrency trades")
 
 
-def collect_crypto_data(symbol: str, start_date: str):
+def collect_crypto_data(
+    symbol: str, start_date: str, news_count: int = 10, from_upbit: bool = False, balance: dict = None
+):
     """특정 암호화폐의 모든 관련 데이터를 수집합니다."""
-    ticker = coinone.get_ticker(symbol)
-    crypto_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
+    if from_upbit:
+        tickers = upbit.get_ticker(symbol)
+        ticker = tickers[0]
+        crypto_price = ticker["trade_price"]
+    else:
+        ticker = coinone.get_ticker(symbol)
+        crypto_price = (float(ticker["best_asks"][0]["price"]) + float(ticker["best_bids"][0]["price"])) / 2
 
     crypto_data = crypto.get_quotes(symbol)
 
@@ -82,11 +91,14 @@ def collect_crypto_data(symbol: str, start_date: str):
         network_stats_csv = df.to_csv(index=False)
 
     # 뉴스 데이터
-    crypto_news = crypto.fetch_news(start_date, symbol)
-    df = pd.DataFrame(crypto_news)
-    df = df[["source", "title", "description", "publishedAt", "content"]]
-    df["source"] = df["source"].apply(lambda x: x["name"])
-    crypto_news_csv = df.to_csv(index=False)
+    if settings.DEBUG:
+        crypto_news_csv = ""
+    else:
+        crypto_news = crypto.fetch_news(start_date, symbol, news_count)
+        df = pd.DataFrame(crypto_news)
+        df = df[["source", "title", "description", "publishedAt", "content"]]
+        df["source"] = df["source"].apply(lambda x: x["name"])
+        crypto_news_csv = df.to_csv(index=False)
 
     return {
         "symbol": symbol,
@@ -236,7 +248,163 @@ Rules:
             f.write(all_data)
             f.write(json.dumps(kwargs))
 
-    return invoke_llm(MultiCryptoRecommendation, prompt, all_data, with_fallback=with_fallback, **kwargs)
+    return invoke_llm(prompt, all_data, model=MultiCryptoRecommendation, with_fallback=with_fallback, **kwargs)
+
+
+def get_rebalance_recommendation(
+    crypto_data_list: list[dict], indices_csv: str, balances: dict[str, dict], total_value: int
+):
+    """LLM을 사용하여 암호화폐 투자 추천을 받습니다."""
+    # 각 코인별 데이터를 하나의 문자열로 조합
+    data_descriptions = []
+    for data in crypto_data_list:
+        symbol = data["symbol"]
+        description = f"""
+=== {symbol} Data ===
+User's current balance data in KRW in JSON
+```json
+{symbol}_balance_json
+```
+Recent trading data in KRW in JSON
+```json
+{symbol}_json_data
+```
+Historical data in USD in CSV
+```csv
+{symbol}_crypto_data_csv
+```"""
+
+        if data["network_stats_csv"]:  # BTC인 경우
+            description += f"""
+Network stats in CSV
+```csv
+{symbol}_network_stats_csv
+```"""
+
+        description += f"""
+News in CSV
+```csv
+{symbol}_crypto_news_csv
+```"""
+        description = re.sub(
+            rf"^({symbol}_(balance_json|json_data|crypto_data_csv|network_stats_csv|crypto_news_csv))",
+            r"{\1}",
+            description,
+            flags=re.MULTILINE,
+        )
+        data_descriptions.append(description)
+
+    all_data = "\n\n".join(data_descriptions)
+    all_data += """
+=== Market Indices ===
+Indices data in USD in CSV
+```csv
+{indices_csv}
+```"""
+
+    # 각 코인별 데이터를 개별 변수로 전달하기 위한 kwargs 구성
+    kwargs = {
+        "indices_csv": indices_csv,
+    }
+
+    # 각 코인별로 데이터 변수 추가
+    for data in crypto_data_list:
+        symbol = data["symbol"]
+        balance = balances.get(symbol, {})
+        kwargs.update(
+            {
+                f"{symbol}_balance_json": json.dumps(balance),
+                f"{symbol}_json_data": json.dumps(data["input_data"]),
+                f"{symbol}_crypto_data_csv": data["crypto_data_csv"],
+                f"{symbol}_crypto_news_csv": data["crypto_news_csv"],
+            }
+        )
+        if data["network_stats_csv"]:  # BTC인 경우
+            kwargs[f"{symbol}_network_stats_csv"] = data["network_stats_csv"]
+
+    krw_balance = int(float(balances["KRW"]["quantity"] or 0))
+    prompt = f"""You are a cryptocurrency portfolio rebalancing expert with exceptional risk management skills. You have access to:
+ - Real-time market data, historical prices, volatility, news, and market sentiment
+ - KRW balance: {krw_balance:,} KRW
+ - Total coin value: {total_value:,} KRW
+ - Total portfolio value: {total_value + krw_balance:,} KRW
+
+Portfolio Value Calculation (CRITICAL - FOLLOW EXACTLY):
+1. Calculate weights:
+   - For each coin: weight = (current_value from current balance data / total portfolio value) × 100
+   - KRW weight = (KRW balance / total portfolio value) × 100
+   - Verify: Sum of ALL weights (including KRW) must equal 100%
+
+2. Validation checks:
+   - Each coin value must be < total portfolio value
+   - Each weight must be < 100%
+   - Sum of all weights must equal 100%
+   - Total crypto weight = 100% - KRW weight
+
+Rebalancing Rules:
+1) Portfolio Composition
+   - Suggest optimal weight for each cryptocurrency
+   - Total crypto weight should be 70-90% (leaving 10-30% in KRW)
+   - Propose rebalancing when current vs target value difference exceeds ±5%
+
+2) Risk Management
+   - Single coin maximum weight: 50% of total portfolio
+   - Lower allocation for high-volatility coins
+   - Higher allocation for top market cap coins
+
+3) Trade Execution Criteria
+   - Consider fees (0.04% round-trip) and only rebalance when deviation > 0.1%
+   - Recommend splitting large orders into smaller ones
+   - Use limit orders to minimize market impact
+
+4) Market Context
+   - Incorporate last 7 days of news and market sentiment
+   - Analyze overall market trends and individual coin momentum
+   - Consider correlation with major market indicators
+
+Provide a clear and concise analysis in Korean (maximum 4000 characters). Format your response as follows:
+
+1. 현재 포트폴리오 분석
+- 총 포트폴리오 가치: XXX원
+- KRW: XX.XX% (XXX원)
+- 총 코인 가치: XX.XX% (XXX원)
+- 코인별 상세:
+  BTC: XX.XX% (X.XXX개 × 현재가 XXX원 = XXX원)
+  ETH: XX.XX% (X.XXX개 × 현재가 XXX원 = XXX원)
+  ...
+- 리스크 평가
+- 장단점
+
+2. 시장 분석
+- 주요 코인별 기술적/펀더멘털 분석
+- 주요 뉴스 영향
+- 시장 전망
+
+3. 리밸런싱 제안
+- 목표 비중 (전/후 각각 합계 100%가 되어야 함):
+  BTC: XX.XX% -> XX.XX%
+  ETH: XX.XX% -> XX.XX%
+  ...
+  KRW: XX.XX% -> XX.XX%
+- 매매 계획 (우선순위 순):
+  1) XXX: 매수/매도 (X.XXX개 × 현재가 XXX원 = XXX원)
+  2) XXX: 매수/매도 (X.XXX개 × 현재가 XXX원 = XXX원)
+  ...
+
+4. 리스크 관리
+- 손절매 기준
+- 변동성 대비책
+- 비상 상황 대응
+
+Use simple text format without special characters. Focus on clear numerical values and specific recommendations. Double-check all calculations for accuracy.
+"""
+    if settings.DEBUG:
+        with open(f"tmp/rebalance.txt", "w") as f:
+            f.write(prompt)
+            f.write(all_data)
+            f.write(json.dumps(kwargs))
+
+    return invoke_llm(prompt, all_data, with_anthropic=True, **kwargs)
 
 
 def send_trade_result(
@@ -464,6 +632,67 @@ def auto_trading():
                     balances = new_balances
             except Exception as e:
                 logging.exception(f"Error executing trade for {symbol}: {e}")
+
+
+def rebalance_portfolio():
+    # 오늘 날짜와 한 달 전 날짜 설정
+    end_date = timezone.localdate()
+    start_date = (end_date - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # 시장 지표 데이터 가져오기
+    indices_data_csv = crypto.get_market_indices(start_date)
+
+    # 현재 잔고 조회
+    balances = upbit.get_available_balances()
+
+    target_coins = set()
+    for symbol in balances.keys():
+        if symbol != "KRW":
+            target_coins.add(symbol)
+
+    # 모든 코인의 데이터 수집
+    news_start_date = (end_date - timedelta(days=7)).strftime("%Y-%m-%d")
+    crypto_data_dict = {}
+    total_value = 0
+    for symbol in target_coins:
+        try:
+            crypto_data = collect_crypto_data(symbol, news_start_date, from_upbit=True)
+            balance = balances.get(symbol, {})
+            if balance:
+                current_value = float(balance.get("quantity", 0)) * crypto_data["input_data"]["current_price"]
+                crypto_data["input_data"]["current_value"] = current_value
+                total_value += current_value
+            crypto_data_dict[symbol] = crypto_data
+        except Exception as e:
+            logging.exception(f"Failed to collect data for {symbol}: {e}")
+            continue
+
+    config = TradingConfig.objects.filter(is_active=True, user__is_superuser=True).first()
+    chat_id = config.telegram_chat_id
+
+    # 해당 유저의 target_coins에 대한 데이터만 필터링
+    crypto_data = {symbol: crypto_data_dict[symbol] for symbol in target_coins if symbol in crypto_data_dict}
+
+    # LLM에게 추천 받기
+    result, exc = [None] * 2
+    # 최대 2번 시도
+    for _ in range(2):
+        try:
+            result = get_rebalance_recommendation(
+                list(crypto_data.values()),
+                indices_data_csv,
+                balances,
+                int(total_value),
+            )
+            break
+        except Exception as e:
+            logging.warning(e)
+            exc = e
+
+    if result:
+        send_message(f"```\n{result}```", chat_id=chat_id, is_markdown=True)
+    elif exc:
+        logging.exception(f"Error getting rebalance recommendation: {exc}")
 
 
 def fetch_crypto_listings():

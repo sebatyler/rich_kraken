@@ -10,3 +10,18 @@ def format_currency(value):
         value = f"{value/1_000:,.2f}K"
 
     return value
+
+
+def dict_pick(data: dict, *keys: list[str]) -> dict:
+    """딕셔너리에서 특정 키만 선택하여 반환합니다."""
+    return {k: data[k] for k in keys if k in data}
+
+
+def dict_at(data: dict, *keys: list[str]) -> list:
+    """딕셔너리에서 특정 키만 선택하여 리스트로 반환합니다."""
+    return [data.get(k) for k in keys]
+
+
+def dict_omit(data: dict, *keys: list[str]) -> dict:
+    """딕셔너리에서 특정 키를 제거하여 반환합니다."""
+    return {k: v for k, v in data.items() if k not in keys}

@@ -19,7 +19,7 @@ chat_anthropic = ChatAnthropic(
 gemini_models = [
     "gemini-exp-1206",
     "gemini-2.0-flash-exp",
-    # "gemini-2.0-flash-thinking-exp-1219",
+    "gemini-2.0-flash-thinking-exp-1219",
 ]
 
 chat_gemini_models = [
@@ -39,7 +39,7 @@ llm_primary = chat_gemini_models[0].with_fallbacks(chat_gemini_models[1:])
 llm_fallback = chat_gemini_models[1]
 
 
-def invoke_llm(model, prompt, *args, with_fallback=False, **kwargs):
+def invoke_llm(prompt, *args, model=None, with_fallback=False, **kwargs):
     chat_prompt = ChatPromptTemplate.from_messages(
         [
             SystemMessage(content=prompt),
@@ -48,12 +48,33 @@ def invoke_llm(model, prompt, *args, with_fallback=False, **kwargs):
     )
     llm = llm_fallback if with_fallback else llm_primary
 
-    parser = YamlOutputParser(pydantic_object=model)
-
     # Combine the prompt with the structured LLM runnable
-    chain = chat_prompt | llm | parser
+    chain = chat_prompt | llm
+
+    if model:
+        parser = YamlOutputParser(pydantic_object=model)
+        chain = chain | parser
 
     # Invoke the runnable to get structured output
     result = chain.invoke(kwargs)
     logging.info(f"{with_fallback=}: {result=}")
-    return result
+
+    return result if model else result.content
+
+
+def invoke_llm_thinking_mode(prompt, *args, **kwargs):
+    chat_prompt = ChatPromptTemplate.from_messages(
+        [
+            SystemMessage(content=prompt),
+            *[("human", arg) for arg in args],
+        ]
+    )
+
+    llm = chat_gemini_models[-1]
+
+    chain = chat_prompt | llm
+
+    # Invoke the runnable to get structured output
+    result = chain.invoke(kwargs)
+    logging.info(f"{result=}")
+    return result.content
