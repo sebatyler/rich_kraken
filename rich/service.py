@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import timedelta
+from typing import Optional
 
 import pandas as pd
 from pydantic import BaseModel
@@ -39,9 +40,9 @@ class BaseStrippedModel(BaseModel):
 class Recommendation(BaseStrippedModel):
     action: str = Field(..., description="The action to take (BUY or SELL)")
     symbol: str = Field(..., description="The symbol of the cryptocurrency")
-    amount: int | None = Field(default=None, description="The amount of the cryptocurrency to buy in KRW")
-    quantity: float | None = Field(default=None, description="The quantity of the cryptocurrency to sell")
-    limit_price: float | None = Field(default=None, description="The limit price for the order")
+    amount: Optional[int] = Field(default=None, description="The amount of the cryptocurrency to buy in KRW")
+    quantity: Optional[float] = Field(default=None, description="The quantity of the cryptocurrency to sell")
+    limit_price: Optional[float] = Field(default=None, description="The limit price for the order")
     reason: str = Field(..., description="The reason for the recommendation")
 
 

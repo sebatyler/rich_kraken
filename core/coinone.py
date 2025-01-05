@@ -62,8 +62,8 @@ def get_ticker(ticker):
 class OrderResponse(BaseModel):
     result: str
     error_code: str
-    error_msg: Optional[str]
-    order_id: Optional[str]
+    error_msg: Optional[str] = None
+    order_id: Optional[str] = None
 
 
 def _order(ticker, side, amount=None, quantity=None, limit_price=None) -> OrderResponse:
@@ -88,7 +88,8 @@ def _order(ticker, side, amount=None, quantity=None, limit_price=None) -> OrderR
     if limit_price:
         payload["limit_price"] = limit_price
 
-    return OrderResponse(**get_response(action="/v2.1/order", payload=payload))
+    data = get_response(action="/v2.1/order", payload=payload)
+    return OrderResponse(**data)
 
 
 def buy_ticker(ticker, amount_krw) -> OrderResponse:
