@@ -1,6 +1,10 @@
 import logging
 import os
 
+from google import genai
+from google.genai.types import GenerateContentConfig
+from google.genai.types import GoogleSearch
+from google.genai.types import Tool
 from langchain.output_parsers import YamlOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import SystemMessage
@@ -78,3 +82,23 @@ def invoke_llm_thinking_mode(prompt, *args, **kwargs):
     result = chain.invoke(kwargs)
     logging.info(f"{result=}")
     return result.content
+
+
+def invoke_gemini_search(prompt, system_instruction=None):
+    google_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    model_id = "gemini-2.0-flash-exp"
+
+    google_search_tool = Tool(google_search=GoogleSearch())
+    response = google_client.models.generate_content(
+        model=model_id,
+        contents=prompt,
+        config=GenerateContentConfig(
+            tools=[google_search_tool],
+            system_instruction=system_instruction,
+            response_modalities=["TEXT"],
+        ),
+    )
+
+    parts = response.candidates[0].content.parts
+    output = [each.text for each in parts]
+    return output

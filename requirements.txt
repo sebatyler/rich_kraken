@@ -150,6 +150,7 @@ google-auth==2.37.0
     #   google-cloud-core
     #   google-cloud-firestore
     #   google-cloud-storage
+    #   google-genai
     #   google-generativeai
 google-auth-httplib2==0.2.0
     # via google-api-python-client
@@ -165,6 +166,8 @@ google-crc32c==1.6.0
     # via
     #   google-cloud-storage
     #   google-resumable-media
+google-genai==0.3.0
+    # via -r requirements.in
 google-generativeai==0.8.3
     # via langchain-google-genai
 google-resumable-media==2.7.2
@@ -286,6 +289,8 @@ peewee==3.17.5
     # via yfinance
 pexpect==4.9.0
     # via ipython
+pillow==11.1.0
+    # via google-genai
 pip-tools==7.4.0
     # via -r requirements.in
 placebo==0.9.0
@@ -331,6 +336,7 @@ pycparser==2.22
 pydantic==2.9.2
     # via
     #   anthropic
+    #   google-genai
     #   google-generativeai
     #   langchain
     #   langchain-anthropic
@@ -381,6 +387,7 @@ requests==2.31.0
     #   cachecontrol
     #   google-api-core
     #   google-cloud-storage
+    #   google-genai
     #   langchain
     #   langsmith
     #   nasdaq-data-link
@@ -467,6 +474,8 @@ wcwidth==0.2.13
     #   prompt-toolkit
 webencodings==0.5.1
     # via html5lib
+websockets==14.1
+    # via google-genai
 werkzeug==3.0.2
     # via zappa
 wheel==0.42.0

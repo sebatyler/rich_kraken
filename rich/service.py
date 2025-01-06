@@ -24,6 +24,7 @@ from core import coinone
 from core import crypto
 from core import upbit
 from core import utils
+from core.llm import invoke_gemini_search
 from core.llm import invoke_llm
 from core.telegram import send_message
 from trading.models import Trading
@@ -788,3 +789,46 @@ def select_coins_to_buy():
 
     config = TradingConfig.objects.filter(is_active=True, user__is_superuser=True).first()
     send_message(text, chat_id=config.telegram_chat_id, is_markdown=True)
+
+
+def threads_post():
+    prompt = """Analyze and summarize current market status in a Threads-friendly format:
+
+US Stock Market 🇺🇸
+- How are major indices performing? (S&P 500, NASDAQ, DOW)
+- Which sectors are hot today?
+- Any notable company movements?
+- Key economic news?
+- What's the overall market vibe?
+
+Crypto Market 🌐
+- How's Bitcoin doing?
+- Which altcoins are making moves?
+- Any big project news?
+- Overall crypto market sentiment?
+
+Requirements:
+- Write in a casual, conversational tone
+- Use line breaks between topics
+- Start with an engaging hook
+- Add relevant emojis (1-2 per point)
+- Focus on what young investors care about
+- Include only the most impactful numbers
+- Keep each point short and snappy
+- End with a key takeaway or tip"""
+
+    system_instruction = [
+        "You are a trendy financial content creator for Threads.",
+        "Write in plain text format - NO markdown, NO bullet points, NO special formatting.",
+        "Use emojis naturally, like in casual texting.",
+        "Keep paragraphs short - 1-2 sentences max.",
+        "Use line breaks to separate topics.",
+        "Write in Korean with a casual, friendly tone.",
+        "Avoid any special characters or formatting.",
+        "Make it feel like a friend sharing market insights.",
+        "Keep total length under 2000 characters.",
+        "End with an engaging question or call to action.",
+    ]
+
+    result = invoke_gemini_search(prompt, system_instruction)
+    print(result)
