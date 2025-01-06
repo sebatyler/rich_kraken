@@ -110,6 +110,7 @@ def get_multi_recommendation(
     crypto_data_list: list[dict],
     indices_csv: str,
     balances: dict[str, dict],
+    total_coin_value: int,
     markets: dict[str, dict],
     trading_config: TradingConfig,
     with_fallback: bool = False,
@@ -193,7 +194,9 @@ Indices data in USD in CSV
     krw_balance = int(float(balances["KRW"]["available"] or 0))
     prompt = f"""You are a crypto trading advisor who is aggressive yet risk-aware. You have access to:
  - Real-time data, historical prices, volatility, news, sentiment
- - Current KRW balance: {krw_balance:,} KRW
+ - KRW balance: {krw_balance:,} KRW
+ - Total coin value: {total_coin_value:,} KRW
+ - Total portfolio value: {total_coin_value + krw_balance:,} KRW
  - Min trade: {trading_config.min_trade_amount:,} KRW, step: {trading_config.step_amount:,} KRW
 
 Key Rules (Condensed):
@@ -577,10 +580,18 @@ def auto_trading():
 
         balances = coinone.get_balances()
 
-        # 해당 유저의 target_coins에 대한 데이터만 필터링
-        user_crypto_data = {
-            symbol: crypto_data_dict[symbol] for symbol in config.target_coins if symbol in crypto_data_dict
-        }
+        # 해당 유저의 target_coins에 대한 데이터만 필터링하고 현재 잔고 가치 계산
+        user_crypto_data = {}
+        total_coin_value = 0
+        for symbol in config.target_coins:
+            if symbol in crypto_data_dict:
+                data = dict(crypto_data_dict[symbol])
+                balance = balances.get(symbol)
+                if balance:
+                    current_value = float(balance.get("available") or 0) * data["input_data"]["current_price"]
+                    data["input_data"]["current_value"] = current_value
+                    total_coin_value += current_value
+                user_crypto_data[symbol] = data
 
         # LLM에게 추천 받기
         result, exc = [None] * 2
@@ -591,6 +602,7 @@ def auto_trading():
                     list(user_crypto_data.values()),
                     indices_data_csv,
                     balances,
+                    int(total_coin_value),
                     markets,
                     config,
                     with_fallback=i > 0,
