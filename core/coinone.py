@@ -94,11 +94,11 @@ def _order(ticker, side, amount=None, quantity=None, limit_price=None) -> OrderR
 
 
 def buy_ticker(ticker, amount_krw) -> OrderResponse:
-    return _order(ticker, "BUY", amount_krw)
+    return _order(ticker, "BUY", amount=amount_krw)
 
 
 def sell_ticker(ticker, quantity, limit_price) -> OrderResponse:
-    return _order(ticker, "SELL", quantity, limit_price)
+    return _order(ticker, "SELL", quantity=quantity, limit_price=limit_price)
 
 
 def get_order_detail(order_id, target_currency):
