@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from rich.service import send_trade_result
