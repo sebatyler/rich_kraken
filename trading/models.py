@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
@@ -115,20 +117,27 @@ class Trading(TimeStampedModel):
     def save(self, *args, **kwargs):
         is_adding = self._state.adding
 
-        if is_adding and self.order_detail and (data := self.order_detail.get("order")):
-            for field in (
-                "fee_rate",
-                "average_executed_price",
-                "average_fee_rate",
-                "limit_price",
-                "original_qty",
-                "executed_qty",
-                "canceled_qty",
-                "traded_amount",
-                "original_amount",
-                "canceled_amount",
-            ):
-                if getattr(self, field) is None:
-                    setattr(self, field, data.get(field))
+        if is_adding:
+            if self.order_detail and (data := self.order_detail.get("order")):
+                for field in (
+                    "fee_rate",
+                    "average_executed_price",
+                    "average_fee_rate",
+                    "limit_price",
+                    "original_qty",
+                    "executed_qty",
+                    "canceled_qty",
+                    "traded_amount",
+                    "original_amount",
+                    "canceled_amount",
+                ):
+                    if getattr(self, field) is None:
+                        setattr(self, field, data.get(field))
+
+            for field in self._meta.fields:
+                if isinstance(field, models.DecimalField):
+                    value = getattr(self, field.name)
+                    if value is not None and not isinstance(value, Decimal):
+                        setattr(self, field.name, Decimal(str(value)))
 
         super().save(*args, **kwargs)

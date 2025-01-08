@@ -413,16 +413,16 @@ Use simple text format without special characters. Focus on clear numerical valu
 def send_trade_result(trading: Trading, balances: dict, chat_id: str):
     """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
     symbol = trading.coin
-    crypto_amount = Decimal(balances[symbol]["available"])
-    crypto_value = crypto_amount * trading.price
-    krw_amount = Decimal(balances["KRW"]["available"])
     quantity = Decimal(trading.executed_qty or 0)
     amount = int(quantity * (trading.average_executed_price or 0))
 
     message_lines = [f"{trading.side}: {format_quantity(quantity)} {symbol} ({amount:,} 원)"]
     if quantity:
+        coin_quantity = Decimal(balances[symbol]["available"])
+        coin_value = coin_quantity * trading.price
+        krw_amount = Decimal(balances["KRW"]["available"])
         message_lines.append(
-            f"보유: {format_quantity(crypto_amount)} {symbol} {crypto_value:,.0f} / {krw_amount:,.0f} 원"
+            f"보유: {format_quantity(coin_quantity)} {symbol} {coin_value:,.0f} / {krw_amount:,.0f} 원"
         )
         price_msg = "{:,.0f}".format(trading.average_executed_price or 0)
         message_lines.append(f"{symbol} 거래 가격: {price_msg} 원")
@@ -769,7 +769,7 @@ def select_coins_to_buy():
         text = "\n".join(text_list)
         text = f"Selected Coins to Buy:\n```\n{text}```"
     else:
-        text = "No coins met the criteria for buying\."
+        text = "No coins met the criteria for buying."
 
     config = TradingConfig.objects.filter(is_active=True, user__is_superuser=True).first()
     send_message(text, chat_id=config.telegram_chat_id, is_markdown=True)
