@@ -410,7 +410,7 @@ Use simple text format without special characters. Focus on clear numerical valu
     return invoke_llm(prompt, all_data, with_anthropic=True, **kwargs)
 
 
-def send_trade_result(trading: Trading, balances: dict, chat_id: str, reason: str):
+def send_trade_result(trading: Trading, balances: dict, chat_id: str):
     """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
     symbol = trading.coin
     crypto_amount = Decimal(balances[symbol]["available"])
@@ -427,8 +427,8 @@ def send_trade_result(trading: Trading, balances: dict, chat_id: str, reason: st
         price_msg = "{:,.0f}".format(trading.average_executed_price or 0)
         message_lines.append(f"{symbol} 거래 가격: {price_msg} 원")
 
-    if reason:
-        message_lines.append(reason)
+    if trading.reason:
+        message_lines.append(trading.reason)
 
     if not quantity:
         order = (
@@ -461,6 +461,7 @@ def process_trade(
         amount=amount,
         quantity=quantity,
         limit_price=limit_price,
+        reason=reason,
         price=crypto_price,
         type=order_data["type"],
         side=order_data["side"],
@@ -471,7 +472,7 @@ def process_trade(
 
     # current balance and value after order
     balances = coinone.get_balances()
-    send_trade_result(balances=balances, chat_id=chat_id, reason=reason, trading=trading)
+    send_trade_result(balances=balances, chat_id=chat_id, trading=trading)
 
     return balances
 

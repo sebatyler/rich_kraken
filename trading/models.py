@@ -78,6 +78,7 @@ class Trading(TimeStampedModel):
     limit_price = models.DecimalField(
         max_digits=20, decimal_places=0, null=True, blank=True, help_text="주문 제한가 (KRW)"
     )
+    reason = models.TextField(null=True, blank=True, help_text="주문 사유")
 
     type = models.CharField(max_length=20, help_text="주문 유형 (예: MARKET)")
     side = models.CharField(max_length=10, help_text="BUY/SELL")

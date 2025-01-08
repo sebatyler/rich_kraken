@@ -36,6 +36,7 @@ class TradingFactory(DjangoModelFactory):
     fee_rate = Decimal(0.0005)  # 0.05%
     executed_qty = Decimal(0.1)  # 0.1 BTC
     average_executed_price = Decimal(50_000_000)  # 5천만원
+    reason = factory.LazyAttribute(lambda obj: f"{obj.side} 주문 사유")
     fee = factory.LazyAttribute(
         lambda obj: obj.average_executed_price * obj.executed_qty * obj.fee_rate if obj.executed_qty else 0
     )
