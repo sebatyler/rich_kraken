@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+
 def format_currency(value):
     """통화 값을 읽기 쉬운 형식으로 변환합니다."""
     if value > 1_000_000_000_000:
@@ -25,3 +28,13 @@ def dict_at(data: dict, *keys: list[str]) -> list:
 def dict_omit(data: dict, *keys: list[str]) -> dict:
     """딕셔너리에서 특정 키를 제거하여 반환합니다."""
     return {k: v for k, v in data.items() if k not in keys}
+
+
+def format_quantity(quantity: Decimal) -> str:
+    """수량을 읽기 쉬운 형식으로 변환합니다."""
+    display = f"{quantity:,.8f}"
+
+    if "." in display:
+        display = display.rstrip("0").rstrip(".")
+
+    return display

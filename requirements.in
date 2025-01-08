@@ -39,3 +39,12 @@ pyjwt==2.10.1
 sentry-sdk[django]==2.1.1
 
 firebase-admin
+
+pytest==8.3.4
+pytest-django==4.9.0
+django-test-plus==2.2.4
+pytest-mock==3.14.0
+pytest-cov==6.0.0
+requests-mock==1.12.1
+pytest-factoryboy==2.7.0
+pytest-freezegun==0.4.2

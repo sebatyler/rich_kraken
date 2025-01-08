@@ -33,7 +33,20 @@ class TradingConfigAdmin(SimpleHistoryAdmin, ModelAdmin):
 
 @admin.register(Trading)
 class TradingAdmin(ModelAdmin):
-    list_display = ("id", "user", "coin", "type", "side", "amount", "quantity", "price", "status", "created")
+    list_display = (
+        "id",
+        "user",
+        "coin",
+        "type",
+        "side",
+        "price",
+        "amount",
+        "quantity",
+        "limit_price",
+        "executed_qty",
+        "status",
+        "created",
+    )
     list_filter = ("user", "coin", "type", "side", "status")
     list_select_related = ("user",)
     search_fields = ("user__username", "user__email", "coin")

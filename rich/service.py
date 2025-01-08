@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import timedelta
+from decimal import Decimal
 from typing import Optional
 
 import pandas as pd
@@ -23,10 +24,11 @@ from django.utils import timezone
 from core import coinone
 from core import crypto
 from core import upbit
-from core import utils
 from core.llm import invoke_gemini_search
 from core.llm import invoke_llm
 from core.telegram import send_message
+from core.utils import format_currency
+from core.utils import format_quantity
 from trading.models import Trading
 from trading.models import TradingConfig
 
@@ -408,22 +410,33 @@ Use simple text format without special characters. Focus on clear numerical valu
     return invoke_llm(prompt, all_data, with_anthropic=True, **kwargs)
 
 
-def send_trade_result(
-    symbol: str, action: str, amount: float, quantity: float, price: float, balances: dict, chat_id: str, reason: str
-):
+def send_trade_result(trading: Trading, balances: dict, chat_id: str):
     """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
-    crypto_amount = float(balances[symbol]["available"])
-    crypto_value = crypto_amount * price
-    krw_amount = float(balances["KRW"]["available"])
+    symbol = trading.coin
+    crypto_amount = Decimal(balances[symbol]["available"])
+    crypto_value = crypto_amount * trading.price
+    krw_amount = Decimal(balances["KRW"]["available"])
+    quantity = Decimal(trading.executed_qty or 0)
+    amount = int(quantity * (trading.average_executed_price or 0))
 
-    price_msg = "{:,.0f}".format(price)
-    message_lines = [
-        f"{action}: {quantity:,.8f} {symbol} ({amount:,} KRW)",
-        f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
-        f"{symbol} price: {price_msg}KRW",
-    ]
-    if reason:
-        message_lines.append(reason)
+    message_lines = [f"{trading.side}: {format_quantity(quantity)} {symbol} ({amount:,} 원)"]
+    if quantity:
+        message_lines.append(
+            f"보유: {format_quantity(crypto_amount)} {symbol} {crypto_value:,.0f} / {krw_amount:,.0f} 원"
+        )
+        price_msg = "{:,.0f}".format(trading.average_executed_price or 0)
+        message_lines.append(f"{symbol} 거래 가격: {price_msg} 원")
+
+    if trading.reason:
+        message_lines.append(trading.reason)
+
+    if not quantity:
+        order = (
+            f"추천 매수금액: {trading.amount:,.0f} 원"
+            if trading.side == "BUY"
+            else f"추천 매도수량: {format_quantity(trading.quantity)} {symbol}"
+        )
+        message_lines.append(f"주문 취소됨! 주문하는게 좋다고 판단하면 직접 주문하세요. {trading.side} / {order}")
 
     send_message("\n".join(message_lines), chat_id=chat_id)
 
@@ -431,25 +444,24 @@ def send_trade_result(
 def process_trade(
     user,
     symbol: str,
-    action: str,
     amount: float,
     quantity: float,
     limit_price: float,
     crypto_price: float,
-    crypto_balance: dict,
     order_detail: dict,
     chat_id: str,
     reason: str,
 ):
     """거래를 처리하고 결과를 저장 및 전송합니다."""
     order_data = order_detail["order"]
-    Trading.objects.create(
+    trading = Trading.objects.create(
         user=user,
         order_id=order_data["order_id"],
         coin=symbol,
         amount=amount,
         quantity=quantity,
         limit_price=limit_price,
+        reason=reason,
         price=crypto_price,
         type=order_data["type"],
         side=order_data["side"],
@@ -460,36 +472,12 @@ def process_trade(
 
     # current balance and value after order
     balances = coinone.get_balances()
-    if action == "BUY":
-        traded_quantity = float(balances[symbol]["available"]) - float(crypto_balance.get("available") or 0)
-        traded_amount = amount
-    elif action == "SELL":
-        traded_quantity = float(crypto_balance.get("available") or 0) - float(balances[symbol]["available"])
-        traded_amount = traded_quantity * crypto_price
-    else:
-        raise ValueError(f"Invalid action: {action}")
-
-    send_trade_result(
-        symbol=symbol,
-        action=action,
-        amount=traded_amount,
-        quantity=traded_quantity,
-        price=crypto_price,
-        balances=balances,
-        chat_id=chat_id,
-        reason=reason,
-    )
+    send_trade_result(balances=balances, chat_id=chat_id, trading=trading)
 
     return balances
 
 
-def execute_trade(
-    user,
-    recommendation: Recommendation,
-    crypto_data: dict,
-    crypto_balance: dict,
-    chat_id: str,
-) -> dict:
+def execute_trade(user, recommendation: Recommendation, crypto_data: dict, chat_id: str) -> dict:
     """거래를 실행하고 결과를 처리합니다."""
     action = recommendation.action
     symbol = recommendation.symbol
@@ -525,14 +513,12 @@ def execute_trade(
     logging.info(f"order_detail: {order_detail}")
 
     return process_trade(
-        user=user,
+        user,
         symbol=symbol,
-        action=action,
         amount=recommendation.amount,
         quantity=recommendation.quantity,
         limit_price=recommendation.limit_price,
         crypto_price=crypto_price,
-        crypto_balance=crypto_balance,
         order_detail=order_detail,
         chat_id=chat_id,
         reason=recommendation.reason,
@@ -628,14 +614,12 @@ def auto_trading():
         for recommendation in result.recommendations:
             symbol = recommendation.symbol
             crypto_data = user_crypto_data[symbol]
-            crypto_balance = balances[symbol]
 
             try:
                 new_balances = execute_trade(
-                    user=config.user,
+                    config.user,
                     recommendation=recommendation,
                     crypto_data=crypto_data,
-                    crypto_balance=crypto_balance,
                     chat_id=chat_id,
                 )
                 if new_balances:
@@ -778,7 +762,7 @@ def select_coins_to_buy():
         text_list.append(f"Price 5 days ago: ${coin['first_price']:.4f}")
         text_list.append(f"Change over 5 days: {coin['change_5d']:.2f}%")
 
-        market_cap = utils.format_currency(coin["avg_market_cap"])
+        market_cap = format_currency(coin["avg_market_cap"])
         text_list.extend([f"Average Market Cap: {market_cap}", ""])
 
     if text_list:
@@ -832,3 +816,4 @@ Requirements:
 
     result = invoke_gemini_search(prompt, system_instruction)
     print(result)
+    return result
