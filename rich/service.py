@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import timedelta
+from decimal import Decimal
 from typing import Optional
 
 import pandas as pd
@@ -23,10 +24,11 @@ from django.utils import timezone
 from core import coinone
 from core import crypto
 from core import upbit
-from core import utils
 from core.llm import invoke_gemini_search
 from core.llm import invoke_llm
 from core.telegram import send_message
+from core.utils import format_currency
+from core.utils import format_quantity
 from trading.models import Trading
 from trading.models import TradingConfig
 
@@ -411,25 +413,30 @@ Use simple text format without special characters. Focus on clear numerical valu
 def send_trade_result(trading: Trading, balances: dict, chat_id: str, reason: str):
     """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
     symbol = trading.coin
-    crypto_amount = float(balances[symbol]["available"])
+    crypto_amount = Decimal(balances[symbol]["available"])
     crypto_value = crypto_amount * trading.price
-    krw_amount = float(balances["KRW"]["available"])
-    quantity = float(trading.executed_qty or 0)
-    amount = int(quantity * trading.average_executed_price)
+    krw_amount = Decimal(balances["KRW"]["available"])
+    quantity = Decimal(trading.executed_qty or 0)
+    amount = int(quantity * (trading.average_executed_price or 0))
 
-    message_lines = [f"{trading.side}: {quantity:,.8f} {symbol} ({amount:,} KRW)"]
+    message_lines = [f"{trading.side}: {format_quantity(quantity)} {symbol} ({amount:,} 원)"]
     if quantity:
-        message_lines.append(f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW")
-
-    price_msg = "{:,.0f}".format(trading.price)
-    message_lines.append(f"{symbol} price: {price_msg}KRW")
+        message_lines.append(
+            f"보유: {format_quantity(crypto_amount)} {symbol} {crypto_value:,.0f} / {krw_amount:,.0f} 원"
+        )
+        price_msg = "{:,.0f}".format(trading.average_executed_price or 0)
+        message_lines.append(f"{symbol} 거래 가격: {price_msg} 원")
 
     if reason:
         message_lines.append(reason)
 
     if not quantity:
-        order = f"매수금액: {amount:,.} KRW" if trading.side == "BUY" else f"매도수량: {quantity:,.8f}"
-        message_lines.append(f"주문 취소됨! 주문하는게 좋다고 판단하면 직접 주문하세요. {trading.side}/{order}")
+        order = (
+            f"추천 매수금액: {trading.amount:,.0f} 원"
+            if trading.side == "BUY"
+            else f"추천 매도수량: {format_quantity(trading.quantity)} {symbol}"
+        )
+        message_lines.append(f"주문 취소됨! 주문하는게 좋다고 판단하면 직접 주문하세요. {trading.side} / {order}")
 
     send_message("\n".join(message_lines), chat_id=chat_id)
 
@@ -754,7 +761,7 @@ def select_coins_to_buy():
         text_list.append(f"Price 5 days ago: ${coin['first_price']:.4f}")
         text_list.append(f"Change over 5 days: {coin['change_5d']:.2f}%")
 
-        market_cap = utils.format_currency(coin["avg_market_cap"])
+        market_cap = format_currency(coin["avg_market_cap"])
         text_list.extend([f"Average Market Cap: {market_cap}", ""])
 
     if text_list:

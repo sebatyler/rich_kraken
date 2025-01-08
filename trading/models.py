@@ -127,6 +127,7 @@ class Trading(TimeStampedModel):
                 "original_amount",
                 "canceled_amount",
             ):
-                setattr(self, field, data.get(field))
+                if getattr(self, field) is None:
+                    setattr(self, field, data.get(field))
 
         super().save(*args, **kwargs)
