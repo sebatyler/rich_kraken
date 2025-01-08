@@ -408,22 +408,28 @@ Use simple text format without special characters. Focus on clear numerical valu
     return invoke_llm(prompt, all_data, with_anthropic=True, **kwargs)
 
 
-def send_trade_result(
-    symbol: str, action: str, amount: float, quantity: float, price: float, balances: dict, chat_id: str, reason: str
-):
+def send_trade_result(trading: Trading, balances: dict, chat_id: str, reason: str):
     """거래 결과를 확인하고 텔레그램 메시지를 전송합니다."""
+    symbol = trading.coin
     crypto_amount = float(balances[symbol]["available"])
-    crypto_value = crypto_amount * price
+    crypto_value = crypto_amount * trading.price
     krw_amount = float(balances["KRW"]["available"])
+    quantity = float(trading.executed_qty or 0)
+    amount = int(quantity * trading.average_executed_price)
 
-    price_msg = "{:,.0f}".format(price)
-    message_lines = [
-        f"{action}: {quantity:,.8f} {symbol} ({amount:,} KRW)",
-        f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW",
-        f"{symbol} price: {price_msg}KRW",
-    ]
+    message_lines = [f"{trading.side}: {quantity:,.8f} {symbol} ({amount:,} KRW)"]
+    if quantity:
+        message_lines.append(f"{crypto_amount:,.5f}{symbol} {crypto_value:,.0f} / {krw_amount:,.0f} KRW")
+
+    price_msg = "{:,.0f}".format(trading.price)
+    message_lines.append(f"{symbol} price: {price_msg}KRW")
+
     if reason:
         message_lines.append(reason)
+
+    if not quantity:
+        order = f"매수금액: {amount:,.} KRW" if trading.side == "BUY" else f"매도수량: {quantity:,.8f}"
+        message_lines.append(f"주문 취소됨! 주문하는게 좋다고 판단하면 직접 주문하세요. {trading.side}/{order}")
 
     send_message("\n".join(message_lines), chat_id=chat_id)
 
@@ -431,19 +437,17 @@ def send_trade_result(
 def process_trade(
     user,
     symbol: str,
-    action: str,
     amount: float,
     quantity: float,
     limit_price: float,
     crypto_price: float,
-    crypto_balance: dict,
     order_detail: dict,
     chat_id: str,
     reason: str,
 ):
     """거래를 처리하고 결과를 저장 및 전송합니다."""
     order_data = order_detail["order"]
-    Trading.objects.create(
+    trading = Trading.objects.create(
         user=user,
         order_id=order_data["order_id"],
         coin=symbol,
@@ -460,36 +464,12 @@ def process_trade(
 
     # current balance and value after order
     balances = coinone.get_balances()
-    if action == "BUY":
-        traded_quantity = float(balances[symbol]["available"]) - float(crypto_balance.get("available") or 0)
-        traded_amount = amount
-    elif action == "SELL":
-        traded_quantity = float(crypto_balance.get("available") or 0) - float(balances[symbol]["available"])
-        traded_amount = traded_quantity * crypto_price
-    else:
-        raise ValueError(f"Invalid action: {action}")
-
-    send_trade_result(
-        symbol=symbol,
-        action=action,
-        amount=traded_amount,
-        quantity=traded_quantity,
-        price=crypto_price,
-        balances=balances,
-        chat_id=chat_id,
-        reason=reason,
-    )
+    send_trade_result(balances=balances, chat_id=chat_id, reason=reason, trading=trading)
 
     return balances
 
 
-def execute_trade(
-    user,
-    recommendation: Recommendation,
-    crypto_data: dict,
-    crypto_balance: dict,
-    chat_id: str,
-) -> dict:
+def execute_trade(user, recommendation: Recommendation, crypto_data: dict, chat_id: str) -> dict:
     """거래를 실행하고 결과를 처리합니다."""
     action = recommendation.action
     symbol = recommendation.symbol
@@ -525,14 +505,12 @@ def execute_trade(
     logging.info(f"order_detail: {order_detail}")
 
     return process_trade(
-        user=user,
+        user,
         symbol=symbol,
-        action=action,
         amount=recommendation.amount,
         quantity=recommendation.quantity,
         limit_price=recommendation.limit_price,
         crypto_price=crypto_price,
-        crypto_balance=crypto_balance,
         order_detail=order_detail,
         chat_id=chat_id,
         reason=recommendation.reason,
@@ -628,14 +606,12 @@ def auto_trading():
         for recommendation in result.recommendations:
             symbol = recommendation.symbol
             crypto_data = user_crypto_data[symbol]
-            crypto_balance = balances[symbol]
 
             try:
                 new_balances = execute_trade(
-                    user=config.user,
+                    config.user,
                     recommendation=recommendation,
                     crypto_data=crypto_data,
-                    crypto_balance=crypto_balance,
                     chat_id=chat_id,
                 )
                 if new_balances:
@@ -832,3 +808,4 @@ Requirements:
 
     result = invoke_gemini_search(prompt, system_instruction)
     print(result)
+    return result

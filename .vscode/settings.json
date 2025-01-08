@@ -14,6 +14,5 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "python.languageServer": "Pylance",
-  "python.analysis.diagnosticMode": "workspace",
-  "CodeGPT.apiKey": "OpenAI"
+  "python.analysis.diagnosticMode": "workspace"
 }
