@@ -202,23 +202,33 @@ Indices data in USD in CSV
  - Total portfolio value: {total_coin_value + krw_balance:,} KRW
  - Min trade: {trading_config.min_trade_amount:,} KRW, step: {trading_config.step_amount:,} KRW
 
-Key Rules (Condensed):
-1) Recommendations:
-   - {trading_config.min_coins} ~ {trading_config.max_coins} trades (BUY/SELL), or 0 if no good opportunities.
+Key Rules (CRITICAL - FOLLOW EXACTLY):
+1) Trade Count Rules:
+   - Recommend exactly {trading_config.min_coins} to {trading_config.max_coins} trades, or 0 if no good opportunities
+   - NEVER exceed {trading_config.max_coins} trades
+   - NEVER recommend both BUY and SELL for the same coin
+   - Each coin can appear only once in recommendations
+
 2) BUY constraints:
    - amount ≥ {trading_config.min_trade_amount}, multiple of {trading_config.step_amount}
-   - Single BUY ≤ 30% of available KRW, total BUY ≤ 50% of KRW.
+   - Single BUY ≤ 30% of available KRW, total BUY ≤ 50% of KRW
+   - Only recommend BUY if strong upward momentum and positive news
+
 3) SELL constraints:
    - quantity must respect exchange increments (qty_unit) and min_qty~max_qty range
    - Consider partial selling if large holdings, to manage risk and slippage
    - limit_price ~ 0.1~0.3% below current for execution
+   - Only recommend SELL if downward trend or risk mitigation needed
+
 4) Fees & Profit:
    - Fee: 0.02% each trade (0.04% round-trip)
    - Price must move ≥ 0.06% to surpass fees (add ~0.02% safety margin)
+
 5) Risk & Volatility:
    - Avoid risking >2~3% of total portfolio on a single trade
    - High volatility => smaller positions, possibly more diversification
    - Factor in recent news/sentiment for short-term moves
+
 6) Final KRW Ratio:
    - After ALL recommended BUY/SELL are done, aim for 10%~30% of total portfolio in KRW
    - If below 10% or above 30%, explain (e.g., strong bullish/bearish outlook, waiting for better entries)
@@ -238,12 +248,12 @@ recommendations:
     reason: "예: 강세장 분석, 수수료 고려, 변동성 낮음. 20% 배팅."
 ```
 Rules:
-	1.	Strictly follow the YAML structure above.
-	2.	scratchpad and reasoning must be multiline strings (|) with consistent indentation.
-	3.	Do NOT place any text at the very first column of each line inside scratchpad/reasoning. (Use indentation or a dash - )
-	4.	Keep total length of scratchpad + reasoning < 4000 chars.
-	5.	No extra fields. No extra lines outside the YAML.
-
+1. Strictly follow the YAML structure above
+2. scratchpad and reasoning must be multiline strings (|) with consistent indentation
+3. Do NOT place any text at the very first column inside scratchpad/reasoning (Use indentation or a dash -)
+4. Keep total length of scratchpad + reasoning < 4000 chars
+5. No extra fields. No extra lines outside the YAML
+6. Double-check that recommendations follow all trade count and constraint rules
 """
     if settings.DEBUG:
         with open(f"tmp/{trading_config.user.email.split('@')[0]}.txt", "w") as f:
