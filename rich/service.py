@@ -779,7 +779,7 @@ def select_coins_to_buy():
         text = "\n".join(text_list)
         text = f"Selected Coins to Buy:\n```\n{text}```"
     else:
-        text = "No coins met the criteria for buying."
+        text = "No coins met the criteria for buying"
 
     config = TradingConfig.objects.filter(is_active=True, user__is_superuser=True).first()
     send_message(text, chat_id=config.telegram_chat_id, is_markdown=True)
