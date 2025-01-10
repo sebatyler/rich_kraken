@@ -115,6 +115,7 @@ def get_multi_recommendation(
     balances: dict[str, dict],
     total_coin_value: int,
     markets: dict[str, dict],
+    recent_trades_csv: str,
     trading_config: TradingConfig,
     with_fallback: bool = False,
 ) -> MultiCryptoRecommendation:
@@ -168,11 +169,18 @@ News in CSV
 Indices data in USD in CSV
 ```csv
 {indices_csv}
+```
+
+=== Recent Trades ===
+Recent trades in KRW in CSV
+```csv
+{recent_trades_csv}
 ```"""
 
     # 각 코인별 데이터를 개별 변수로 전달하기 위한 kwargs 구성
     kwargs = {
         "indices_csv": indices_csv,
+        "recent_trades_csv": recent_trades_csv,
     }
 
     # 각 코인별로 데이터 변수 추가
@@ -576,6 +584,7 @@ def auto_trading():
         )
 
         balances = coinone.get_balances()
+        recent_trades_csv = Trading.get_recent_trades_csv(user=config.user)
 
         # 해당 유저의 target_coins에 대한 데이터만 필터링하고 현재 잔고 가치 계산
         user_crypto_data = {}
@@ -601,6 +610,7 @@ def auto_trading():
                     balances,
                     int(total_coin_value),
                     markets,
+                    recent_trades_csv,
                     config,
                     with_fallback=i > 0,
                 )
