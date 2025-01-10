@@ -205,63 +205,80 @@ Recent trades in KRW in CSV
     krw_balance = int(float(balances["KRW"]["available"] or 0))
     prompt = f"""You are a crypto trading advisor who is aggressive yet risk-aware. You have access to:
  - Real-time data, historical prices, volatility, news, sentiment
+ - Recent trading history in CSV format
  - KRW balance: {krw_balance:,} KRW
  - Total coin value: {total_coin_value:,} KRW
  - Total portfolio value: {total_coin_value + krw_balance:,} KRW
  - Min trade: {trading_config.min_trade_amount:,} KRW, step: {trading_config.step_amount:,} KRW
 
 Key Rules (CRITICAL - FOLLOW EXACTLY):
-1) Trade Count Rules:
+1) Trade Recommendation Count Rules:
    - Recommend exactly {trading_config.min_coins} to {trading_config.max_coins} trades, or 0 if no good opportunities
    - NEVER exceed {trading_config.max_coins} trades
    - NEVER recommend both BUY and SELL for the same coin
    - Each coin can appear only once in recommendations
+   - Consider recent trading history to avoid frequent trading of the same coin
 
 2) BUY constraints:
    - amount ≥ {trading_config.min_trade_amount}, multiple of {trading_config.step_amount}
    - Single BUY ≤ 30% of available KRW, total BUY ≤ 50% of KRW
    - Only recommend BUY if strong upward momentum and positive news
+   - Avoid buying coins that were recently sold at a loss
 
 3) SELL constraints:
    - quantity must respect exchange increments (qty_unit) and min_qty~max_qty range
    - Consider partial selling if large holdings, to manage risk and slippage
    - limit_price ~ 0.1~0.3% below current for execution
    - Only recommend SELL if downward trend or risk mitigation needed
+   - Consider profit/loss from recent trades of the same coin
 
 4) Fees & Profit:
    - Fee: 0.02% each trade (0.04% round-trip)
    - Price must move ≥ 0.06% to surpass fees (add ~0.02% safety margin)
+   - Track cumulative fees from recent trades
 
 5) Risk & Volatility:
    - Avoid risking >2~3% of total portfolio on a single trade
    - High volatility => smaller positions, possibly more diversification
    - Factor in recent news/sentiment for short-term moves
+   - Consider recent trading performance of each coin
 
 6) Final KRW Ratio:
    - After ALL recommended BUY/SELL are done, aim for 10%~30% of total portfolio in KRW
    - If below 10% or above 30%, explain (e.g., strong bullish/bearish outlook, waiting for better entries)
 
+7) Recent Trading Analysis:
+   - Review recent trades from CSV data
+   - Consider win/loss ratio for each coin
+   - Avoid overtrading by checking trade frequency
+   - Factor in realized profits/losses
+
 Output must be valid YAML with these sections:
 ```yaml
 scratchpad: |
-  [기술적 분석/시장상황 간단 메모 (한국어). 최대 2000자.]
+  [시장 상황과 최근 거래 분석 (한국어). 핵심 포인트만 3-4줄로 작성]
+
 reasoning: |
-  [전체 매매 전략 및 이유 (한국어). 최대 2000자.]
+  [매매 전략 설명 (한국어). 핵심 포인트만 3-4줄로 작성]
+
 recommendations:
   - action: "BUY"    # or "SELL"
     symbol: "BTC"
     amount: 500000   # (int or null) for BUY only
     quantity: null   # (float or null) for SELL only
     limit_price: null  # (int or null) for SELL only
-    reason: "예: 강세장 분석, 수수료 고려, 변동성 낮음. 20% 배팅."
+    reason: "핵심적인 매매 사유 1-2줄로 작성"
 ```
+
 Rules:
 1. Strictly follow the YAML structure above
-2. scratchpad and reasoning must be multiline strings (|) with consistent indentation
-3. Do NOT place any text at the very first column inside scratchpad/reasoning (Use indentation or a dash -)
-4. Keep total length of scratchpad + reasoning < 4000 chars
-5. No extra fields. No extra lines outside the YAML
-6. Double-check that recommendations follow all trade count and constraint rules
+2. scratchpad and reasoning MUST use multiline string format with | operator and consistent indentation
+3. Keep total length of scratchpad + reasoning < 2000 chars
+4. Each line should be a complete, meaningful statement
+5. Use simple, clear Korean language
+6. No repetition between sections
+7. Double-check that recommendations follow all trade recommendation count and constraint rules
+8. No extra fields. No extra lines outside the YAML
 """
     if settings.DEBUG:
         with open(f"tmp/{trading_config.user.email.split('@')[0]}.txt", "w") as f:
