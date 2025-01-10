@@ -1,11 +1,14 @@
 from decimal import Decimal
 
+import pandas as pd
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from accounts.models import User
 
 
 class TradingConfig(TimeStampedModel):
@@ -141,3 +144,11 @@ class Trading(TimeStampedModel):
                         setattr(self, field.name, Decimal(str(value)))
 
         super().save(*args, **kwargs)
+
+    @classmethod
+    def get_recent_trades_csv(cls, user: User, limit: int = 20):
+        return pd.DataFrame(
+            cls.objects.filter(user=user, executed_qty__gt=0)
+            .order_by("-id")[:limit]
+            .values("coin", "side", "executed_qty", "average_executed_price", "fee", "created")
+        ).to_csv(index=False)
