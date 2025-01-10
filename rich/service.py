@@ -163,8 +163,7 @@ News in CSV
         )
         data_descriptions.append(description)
 
-    all_data = "\n\n".join(data_descriptions)
-    all_data += """
+    all_data = """
 === Market Indices ===
 Indices data in USD in CSV
 ```csv
@@ -175,7 +174,8 @@ Indices data in USD in CSV
 Recent trades in KRW in CSV
 ```csv
 {recent_trades_csv}
-```"""
+```""".strip()
+    all_data += "\n\n" + "\n".join(data_descriptions)
 
     # 각 코인별 데이터를 개별 변수로 전달하기 위한 kwargs 구성
     kwargs = {
