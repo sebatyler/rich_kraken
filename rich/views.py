@@ -46,7 +46,7 @@ class IndexView(TemplateView):
         return self.render_to_response(context)
 
 
-class UpbitBalanceView(LoginRequiredMixin, View):
+class UpbitBalanceView(View):
     """업비트 잔고를 JSON으로 반환하는 뷰"""
 
     def get(self, request, *args, **kwargs):
