@@ -20,12 +20,14 @@ from django.urls import path
 
 from accounts.views import admin_login
 from rich.views import IndexView
+from rich.views import UpbitBalanceTemplateView
 from rich.views import UpbitBalanceView
 
 urlpatterns = [
     path("_a/login/", admin_login, name="admin_login"),
     path("_a/", admin.site.urls),
     path("", IndexView.as_view(), name="index"),
+    path("upbit/balance/", UpbitBalanceTemplateView.as_view(), name="upbit_balance"),
     path("accounts/", include("accounts.urls")),
-    path("api/upbit/balances/", UpbitBalanceView.as_view(), name="upbit_balances"),
+    path("api/upbit/balances/", UpbitBalanceView.as_view(), name="api_upbit_balances"),
 ]

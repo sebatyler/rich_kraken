@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">업비트 잔고 현황</h1>
+
+    <!-- 잔고 테이블 -->
+    <div class="overflow-x-auto bg-white rounded-lg shadow mb-8">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">코인</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">수량</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">평균 매수가
+                    </th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">현재가</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">평가금액
+                    </th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">수익률</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">비중</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {%- for balance in balances %}
+                {%- set profit_rate = (balance.current_price / balance.avg_buy_price * 100 - 100) if
+                balance.avg_buy_price else None %}
+                <tr>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {{ balance.symbol }}
+                        {%- if balance.is_staking %}
+                        <span
+                            class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            스테이킹
+                        </span>
+                        {%- endif %}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {{ balance.quantity }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {{ '{:,.0f}'.format(balance.avg_buy_price) if balance.avg_buy_price else '-' }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {{ '{:,.0f}'.format(balance.current_price) }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {{ '{:,.0f}'.format(balance.value) }}
+                    </td>
+                    <td
+                        class="px-4 py-4 whitespace-nowrap text-sm text-right {{ 'text-green-600' if profit_rate and profit_rate > 0 else 'text-red-600' if profit_rate and profit_rate < 0 else 'text-gray-900' }}">
+                        {{ '{:.2f}%'.format(profit_rate) if profit_rate is not none else '-' }}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {{ '{:.2f}%'.format(balance.weight) }}
+                    </td>
+                </tr>
+                {%- endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 합계 정보 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">코인 자산</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ '{:,.0f}'.format(total_coin_value) }}원</p>
+            <p class="text-md text-gray-600 mt-1">{{ '{:.2f}%'.format(total_coin_value / total_value * 100) }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">원화 잔고</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ '{:,.0f}'.format(krw_value) }}원</p>
+            <p class="text-md text-gray-600 mt-1">{{ '{:.2f}%'.format(krw_weight) }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">총 자산</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ '{:,.0f}'.format(total_value) }}원</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
